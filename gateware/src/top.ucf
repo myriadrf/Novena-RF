@@ -1,0 +1,105 @@
+### extended performance annotation
+CONFIG VCCAUX  = 3.3;
+# Valid values are 2.5 and 3.3
+CONFIG MCB_PERFORMANCE  = EXTENDED;
+
+
+#Created by Constraints Editor (xc6slx45-csg324-3) - 2014/07/09
+#################################
+# Clock From MyriadRF
+#################################
+NET "clk_in" TNM_NET = "clk_in";
+TIMESPEC TS_clk_in = PERIOD "clk_in" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
+OFFSET = OUT 20 ns AFTER "clk_in";
+INST "clk_in_BUFGP" LOC = R10; #H3;
+NET "clk_in" LOC = R10; #H3;
+NET "clk_in" IOSTANDARD = LVCMOS33;
+
+#################################
+# Clock From iMX6Q
+#################################
+#NET "cpu_clk" TNM_NET = "cpu_clk";
+#TIMESPEC TS_cpu_clk = PERIOD "cpu_clk" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
+#OFFSET = OUT 20 ns AFTER "cpu_clk";
+#INST "cpu_clk_BUFGP" LOC = H2;
+#NET "cpu_clk" LOC = H2;
+#NET "cpu_clk" IOSTANDARD = LVCMOS33;
+
+# PlanAhead Generated physical constraints 
+
+
+NET "FPGA_LED2" LOC = A16;
+NET "FPGA_LED2" IOSTANDARD = LVCMOS33;
+
+NET "APOPTOSIS" LOC = K1;
+NET "APOPTOSIS" IOSTANDARD = LVCMOS33;
+
+NET "RESETBMCU" LOC = F1;
+NET "RESETBMCU" IOSTANDARD = LVCMOS33;
+
+NET "lms_rxen" LOC = P2; #
+NET "lms_rxen" IOSTANDARD = LVCMOS33;
+
+NET "lms_txen" LOC = M1; #
+NET "lms_txen" IOSTANDARD = LVCMOS33;
+
+NET "lms_lmsrst" LOC = V5;
+NET "lms_lmsrst" IOSTANDARD = LVCMOS33;
+
+NET "lms_sen" LOC = L4; #
+NET "lms_sen" IOSTANDARD = LVCMOS33;
+NET "cpu_sen" LOC = B3;
+NET "cpu_sen" IOSTANDARD = LVCMOS33;
+
+NET "lms_sclk" LOC = M5; #
+NET "lms_sclk" IOSTANDARD = LVCMOS33;
+NET "cpu_sclk" LOC = D9;
+NET "cpu_sclk" IOSTANDARD = LVCMOS33;
+
+NET "lms_miso" LOC = V7; #
+NET "lms_miso" IOSTANDARD = LVCMOS33;
+NET "cpu_miso" LOC = A3;
+NET "cpu_miso" IOSTANDARD = LVCMOS33;
+
+NET "lms_mosi" LOC = U7; #
+NET "lms_mosi" IOSTANDARD = LVCMOS33;
+NET "cpu_mosi" LOC = A2;
+NET "cpu_mosi" IOSTANDARD = LVCMOS33;
+
+NET "mrf_gpio0" LOC = R3; #
+NET "mrf_gpio0" IOSTANDARD = LVCMOS33;
+NET "mrf_gpio1" LOC = K4; #
+NET "mrf_gpio1" IOSTANDARD = LVCMOS33;
+NET "mrf_gpio2" LOC = K3; #
+NET "mrf_gpio2" IOSTANDARD = LVCMOS33;
+
+
+
+NET "TXIQSEL" LOC = L1; #L2;
+NET "TXIQSEL" IOSTANDARD = LVCMOS33;
+
+NET "TXD[0]" LOC = L2; #L1;
+NET "TXD[0]" IOSTANDARD = LVCMOS33;
+NET "TXD[1]" LOC = V13; #
+NET "TXD[1]" IOSTANDARD = LVCMOS33;
+NET "TXD[2]" LOC = K5; #K5;
+NET "TXD[2]" IOSTANDARD = LVCMOS33;
+NET "TXD[3]" LOC = U11; #
+NET "TXD[3]" IOSTANDARD = LVCMOS33;
+NET "TXD[4]" LOC = L5; #L5;
+NET "TXD[4]" IOSTANDARD = LVCMOS33;
+NET "TXD[5]" LOC = V11; #
+NET "TXD[5]" IOSTANDARD = LVCMOS33;
+NET "TXD[6]" LOC = U10; #U10;
+NET "TXD[6]" IOSTANDARD = LVCMOS33;
+NET "TXD[7]" LOC = R8; #P6; 
+NET "TXD[7]" IOSTANDARD = LVCMOS33;
+NET "TXD[8]" LOC = V10; #V10;
+NET "TXD[8]" IOSTANDARD = LVCMOS33;
+NET "TXD[9]" LOC = T8; #R8;
+NET "TXD[9]" IOSTANDARD = LVCMOS33;
+NET "TXD[10]" LOC = N5; #N5;
+NET "TXD[10]" IOSTANDARD = LVCMOS33;
+NET "TXD[11]" LOC = T9; #T8;
+NET "TXD[11]" IOSTANDARD = LVCMOS33;
+

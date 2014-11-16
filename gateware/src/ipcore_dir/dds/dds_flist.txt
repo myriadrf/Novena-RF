@@ -1,0 +1,14 @@
+# Output products list for <dds>
+dds.asy
+dds.gise
+dds.ngc
+dds.sym
+dds.vhd
+dds.vho
+dds.xco
+dds.xise
+dds\doc\dds_compiler_v4_0_vinfo.html
+dds\doc\dds_ds558.pdf
+dds_flist.txt
+dds_readme.txt
+dds_xmdf.tcl

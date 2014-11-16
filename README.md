@@ -1,10 +1,6 @@
 # Myriad-RF Module for the Novena Open Hardware Computing Plaform
 
-This repository contains the design and manufacturing files for an RF module that adds 300MHz-3.8GHz broadband SDR transmit/receive capability to the [Novena Open Hardware Computing Platform](http://www.kosagi.com/w/index.php?title=Novena_Main_Page).
-
-Please note that the design has not been manufactured and fully tested as yet. However, it is derived from the tried-and-tested Myriad-RF 1 module and only relatively minor changes to this design were required.
-
-Interest in a manufacturing run of the module is being gauged via an [online poll](https://www.surveymonkey.com/s/P3C23X6).
+This repository contains the design and manufacturing files for an RF module that adds 300MHz-3.8GHz broadband SDR transmit/receive capability to the [Novena Open Hardware Computing Platform](http://www.kosagi.com/w/index.php?title=Novena_Main_Page), along with RTL sources for interfacing implemented in the Novena FPGA.
 
 ## Contents
 
@@ -20,6 +16,10 @@ The directory structure for the hardware designs is as follows:
 
 ## Licensing
 
-### Hardware
+### Hardware design
 
-The hardware designs is licensed under a Creative Commons Attribution 3.0 Unported licence.
+The hardware design is licensed under a Creative Commons Attribution 3.0 Unported licence.
+
+### FPGA design
+
+The FPGA RTL is licensed under the Apache License, Version 2.0. However, please note that this does not extend to any files provided with the Xilinx design tools and see the relevant files for the associated terms and conditions.

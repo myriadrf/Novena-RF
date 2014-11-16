@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<symbol version="7" name="novena_fpga">
+    <symboltype>BLOCK</symboltype>
+    <timestamp>2014-8-4T8:42:11</timestamp>
+    <attr value="novena_fpga" name="VeriModel" />
+    <pin polarity="Input" x="0" y="-416" name="EIM_BCLK" />
+    <pin polarity="Input" x="0" y="-352" name="EIM_LBA" />
+    <pin polarity="Input" x="0" y="-288" name="EIM_OE" />
+    <pin polarity="Input" x="0" y="-224" name="EIM_RW" />
+    <pin polarity="Input" x="0" y="96" name="CLK2_N" />
+    <pin polarity="Input" x="0" y="160" name="CLK2_P" />
+    <pin polarity="Input" x="0" y="-160" name="RESETBMCU" />
+    <pin polarity="Input" x="0" y="-96" name="EIM_CS(1:0)" />
+    <pin polarity="Input" x="0" y="-32" name="EIM_A(18:16)" />
+    <pin polarity="BiDirectional" x="512" y="-32" name="EIM_DA(15:0)" />
+    <pin polarity="Output" x="512" y="-416" name="FPGA_LED2" />
+    <pin polarity="Output" x="512" y="32" name="act_id" />
+    <pin polarity="Output" x="512" y="-224" name="measured_burst(15:0)" />
+    <pin polarity="Output" x="512" y="224" name="EIM_WAIT" />
+    <graph>
+        <attrtext style="alignment:BCENTER;fontsize:56;fontname:Arial" attrname="SymbolName" x="256" y="-456" type="symbol" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-416" type="pin EIM_BCLK" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-352" type="pin EIM_LBA" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-288" type="pin EIM_OE" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-224" type="pin EIM_RW" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="96" type="pin CLK2_N" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="160" type="pin CLK2_P" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-160" type="pin RESETBMCU" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-96" type="pin EIM_CS(1:0)" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="72" y="-32" type="pin EIM_A(18:16)" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="440" y="-32" type="pin EIM_DA(15:0)" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="440" y="-416" type="pin FPGA_LED2" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="440" y="32" type="pin act_id" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="440" y="-224" type="pin measured_burst(15:0)" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="440" y="224" type="pin EIM_WAIT" />
+        <line x2="512" y1="224" y2="224" x1="448" />
+        <line x2="0" y1="96" y2="96" x1="64" />
+        <line x2="0" y1="160" y2="160" x1="64" />
+        <line x2="512" y1="32" y2="32" x1="448" />
+        <line x2="0" y1="-416" y2="-416" x1="64" />
+        <line x2="0" y1="-352" y2="-352" x1="64" />
+        <line x2="0" y1="-288" y2="-288" x1="64" />
+        <line x2="0" y1="-224" y2="-224" x1="64" />
+        <line x2="0" y1="-160" y2="-160" x1="64" />
+        <rect width="64" x="0" y="-108" height="24" />
+        <line x2="0" y1="-96" y2="-96" x1="64" />
+        <rect width="64" x="0" y="-44" height="24" />
+        <line x2="0" y1="-32" y2="-32" x1="64" />
+        <line x2="512" y1="-416" y2="-416" x1="448" />
+        <rect width="64" x="448" y="-236" height="24" />
+        <line x2="512" y1="-224" y2="-224" x1="448" />
+        <rect width="64" x="448" y="-44" height="24" />
+        <line x2="512" y1="-32" y2="-32" x1="448" />
+        <rect width="384" x="64" y="-448" height="704" />
+    </graph>
+</symbol>

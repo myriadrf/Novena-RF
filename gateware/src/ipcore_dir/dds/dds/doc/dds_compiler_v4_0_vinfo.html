@@ -1,0 +1,316 @@
+<HTML>
+<HEAD>
+<TITLE>dds_compiler_v4_0_vinfo</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/plain;CHARSET=iso-8859-1">
+</HEAD>
+<BODY>
+<PRE><FONT face="Arial, Helvetica, sans-serif" size="-1">
+                Core name: Xilinx LogiCORE DDS Compiler
+                Version: 4.0
+                Release: ISE 14.1 
+                Release Date: December 18 2012
+
+
+================================================================================
+
+This document contains the following sections:
+
+1. Introduction
+2. New Features
+3. Supported Devices
+4. Resolved Issues
+5. Known Issues
+6. Technical Support
+7. Other Information
+8. Core Release History
+9. Legal Disclaimer
+
+================================================================================
+
+
+1. INTRODUCTION
+
+For installation instructions for this release, please go to:
+
+   <A HREF="http://www.xilinx.com/ipcenter/coregen/ip_update_install_instructions.htm">www.xilinx.com/ipcenter/coregen/ip_update_install_instructions.htm</A>
+
+For system requirements:
+
+   <A HREF="http://www.xilinx.com/ipcenter/coregen/ip_update_system_requirements.htm">www.xilinx.com/ipcenter/coregen/ip_update_system_requirements.htm</A>
+
+This file contains release notes for the Xilinx LogiCORE IP DDS Compiler v4.0
+solution. For the latest core updates, see the product page at:
+
+   <A HREF="http://www.xilinx.com/products/ipcenter/DDS_Compiler.htm">www.xilinx.com/products/ipcenter/DDS_Compiler.htm</A>
+
+
+................................................................................
+
+2. NEW FEATURES
+
+  - ISE 14.4 software support
+  - ISE 14.1 software support
+  - ISE 13.4 software support
+  - ISE 13.3 software support
+  - ISE 13.2 software support
+  - Support for Artix-7 with ISE 13.2
+  - ISE 13.1 software support, Virtex-7 and Kintex-7 support
+  - ISE 12.1 software support
+  - Support for Virtex-6Q and Spartan-6Q with ISE 12.1
+  - ISE 11.4 software support
+  - Support for Automotive Spartan-6 with ISE 11.4
+  - Support for Spartan-6 Low Power with ISE 11.4
+  - Support for Virtex-6 Low Power and Virtex-5Q with ISE 11.3
+
+  - Option added to use core as Phase Generator or SIN/COS Lookup Table only.
+    This capability can allow users to custom build a Direct Digital
+    Synthesizer (DDS) to fit individual application needs.
+
+  - Increased Spurious Free Dynamic Range (SFDR) from 120dBs to 150dBs.
+
+  - Option to configure DDS using system-level parameters (SFDR and Frequency
+    Resolution) or hardware parameters (Phase and Output Width).
+
+  - Option to configure phase increment and phase offset as constant,
+    programmable or dynamic (for modulation).
+
+  - SFDR range with no noise shaping increased to 150dBs for low frequency
+    resolution (that is, when Phase Width &lt;= 16-bits. Note that Phase Width
+    was referred to as Accumulator Width in previous versions).
+
+  - Taylor Series Corrected can now be used for lower SFDR (that is &gt;66dBs)
+    offering solutions which trade reduced Block RAM resources for increased
+    XtremeDSP slices. (Previously Taylor Series Corrected could only be used
+    for SFDR above 90dBs).
+
+  - Taylor Series Corrected has been enhanced to avoid the potential SFDR
+    limits described in previous datasheets (see Known Issues section for
+    further details).
+
+  - Phase width has been reduced in multi-channel DDS to give reduced
+    resources whilst maintaining frequency resolution. The update from
+    previous versions automatically increases frequency resolution to
+    maintain the same phase width as a previous versions.
+
+  - PHASE_OUT now optional.
+
+  - Supports automatic core update from DDS Compiler v3.0, v2.1 and v2.0.
+
+  Note: This core supersedes DDS Compiler v3.0. DDS Compiler version 4.0
+  is not bit-accurate with respect to earlier versions. In particular,
+  first order Taylor Series Correction table entries have been optimized
+  to improve overall accuracy. Extended range of DDS with no noise shaping
+  may reduce DATA width requirements. The update function will aim to adjust
+  Frequency Resolution to maintain the phase width and associated DATA width.
+  Note that this may result in the specified Frequency Resolution parameter
+  changing. However, as phase width is maintained, this will not affect
+  the actual resolution of frequency or phase values. Also, there have been
+  changes to latency, in particular to accommodate the new dynamic phase
+  increment and phase offset options. Accumulator Latency has been removed
+  and is assumed to be One.
+
+
+................................................................................
+
+3. SUPPORTED DEVICES
+ 
+The following device families are supported by the core for this release.
+
+  All 7 Series devices
+
+  All Virtex-6 devices
+
+  All Spartan-6 devices
+
+  All Virtex-5 devices
+
+  All Virtex-4 devices
+
+  All Spartan-3 devices
+
+
+................................................................................
+
+4. RESOLVED ISSUES
+
+  - For integer SFDR values the Phase Angle Width may be up to 1-bit
+    smaller than intended resulting in reduced SFDR by upto 6 dBs.
+    - CR529605
+    - AR33261
+
+  - For some latency values multi-channel phase offset channel out by one.
+    - CR457411
+    - AR 30325
+
+  - Address bus (ADDR) not registered with DATA and REG_SELECT and WE, so one
+    cycle out.
+    - CR529789
+    - AR33263
+
+  - SIN/COS look-up table in DDS sometimes mapped to Block ROM when Memory Type
+    was specified as Distributed ROM.
+    - CR529791
+    - AR33264
+
+  - Behaviour when a programmable phase increment is written through the
+    register interface.
+    - CR492997
+    - Section added to datasheet, entitled Core Timing, to better explain
+      the latency of register writes.
+
+  - Latency reported by GUI when Latency Configuration is Auto may be inconsitent
+    with that of the core.
+    - CR529794
+
+
+................................................................................
+
+5. KNOWN ISSUES
+
+The most recent information, including known issues, workarounds, and
+resolutions for this version is provided in the IP Release Notes Guide
+located at
+
+   <A HREF="http://www.xilinx.com/support/documentation/user_guides/xtp025.pdf">www.xilinx.com/support/documentation/user_guides/xtp025.pdf</A>
+
+The following are known issues for v4.0 of this core at time of release:
+
+   - Increase in registers for single channel Speed optimized DDS using
+     XtremeDSP slices.
+       - CR529793
+       - AR33265
+       - For a single channel DDS configured with Maximal DSP Use,
+         programmable phase increment and Speed as the Optimization
+         Goal there will be a small increase in the number of registers
+         used by the core. This results from a change made in version 4.0
+         to improve the consistency with which the phase increment and
+         offset are absorbed into the XtremeDSP slice. Previously, phase
+         increment register was absorbed into the XtremeDSP slice when
+         Optimization Goal was either Area and Speed, whilst phase offset
+         was only absorbed when Optimization Goal was Area. When this
+         happens the initial value is set to zero. In v4.0
+         absorption of both phase increment and offset only occurs when
+         the Optimization Goal is Area. Speed optimization can be selected
+         to avoid absorption and so enable a non-zero initial value. Also,
+         in v4.0 the GUI enforces an zero initial value when a register is
+         absorbed. The impact of this change is considered minimal as it
+         will not happen on cores that are optimized for area.
+
+   - Number of 18k BRAMs increased from 1 to 2 for 102 &lt; SFDR &lt;= 120dBs
+       - Previous versions of the DDS Compiler restricted RAM usage in
+         the range 102 &lt; SFDR &lt;= 120dBs to 1 BRAM, and provided a
+         warning in the datasheet to ensure that care was taken not to
+         use frequencies that could result in reduced SFDR. To provide a
+         more robust solution, this restriction has been removed. The new
+         solution will use one extra 18k BRAM in this range of SFDR. In
+         addition, fabric has been reduced through the use of an extra
+         XtremeDSP slice. Should either of these enhancements are not
+         appropriate, then it is recommended that version 3.0 be used.
+         Alternatively, it may also be possible to use v4.0 with an SFDR
+         target of 102dBs and Taylor Series Correction, as internal
+         corrections are performed to a higher precision and may provide
+         higher SFDR with similar frequency restrictions (that is, phase
+         increments should not be chosen that just toggle the top 18-bits
+         of the phase accumulator).
+
+
+................................................................................
+
+6. TECHNICAL SUPPORT
+
+To obtain technical support, create a WebCase at <A HREF="http://www.xilinx.com/support.">www.xilinx.com/support.</A>
+Questions are routed to a team with expertise using this product.
+
+Xilinx provides technical support for use of this product when used
+according to the guidelines described in the core documentation, and
+cannot guarantee timing, functionality, or support of this product for
+designs that do not follow specified guidelines.
+
+
+................................................................................
+
+7. OTHER INFORMATION
+
+  - None
+
+
+................................................................................
+
+8. CORE RELEASE HISTORY
+
+Date        By            Version      Description
+================================================================================
+12/18/2012  Xilinx, Inc.  4.0          ISE 14.4 support
+04/24/2012  Xilinx, Inc.  4.0          ISE 14.1 support
+01/11/2012  Xilinx, Inc.  4.0          ISE 13.4 support
+10/19/2011  Xilinx, Inc.  4.0          ISE 13.3 support
+06/22/2011  Xilinx, Inc.  4.0          ISE 13.2 support, Artix-7 support
+03/01/2011  Xilinx, Inc   4.0          ISE 13.1 support, Virtex-7 and Kintex-7 support
+10/29/2010  Xilinx, Inc.  4.0          ISE 7 Series Monthly Snapshot - (O.28)
+04/19/2010  Xilinx, Inc.  4.0          ISE 12.1, Virtex-6Q and Spartan-6Q support
+12/02/2009  Xilinx, Inc.  4.0          Spartan-6 Lower Power device support and Automotive Spartan-6 support
+09/16/2009  Xilinx, Inc.  4.0          Virtex-6 Lower Power device support
+06/24/2009  Xilinx, Inc.  3.0          Virtex-6, Spartan-6 support
+03/24/2008  Xilinx, Inc.  2.1          Bugfixes
+05/17/2007  Xilinx, Inc.  2.0          Virtex-5 and Spartan-3ADSP support
+11/30/2006  Xilinx, Inc.  1.1          Bugfixes
+09/28/2006  Xilinx, Inc.  1.0          Initial release
+================================================================================
+
+
+................................................................................
+
+9. LEGAL DISCLAIMER
+
+(c) Copyright 2006 - 2012 Xilinx, Inc. All rights reserved.
+
+This file contains confidential and proprietary information
+of Xilinx, Inc. and is protected under U.S. and
+international copyright and other intellectual property
+laws.
+
+DISCLAIMER
+
+This disclaimer is not a license and does not grant any
+rights to the materials distributed herewith. Except as
+otherwise provided in a valid license issued to you by
+Xilinx, and to the maximum extent permitted by applicable
+law: (1) THESE MATERIALS ARE MADE AVAILABLE "AS IS" AND
+WITH ALL FAULTS, AND XILINX HEREBY DISCLAIMS ALL WARRANTIES
+AND CONDITIONS, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING
+BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, NON-
+INFRINGEMENT, OR FITNESS FOR ANY PARTICULAR PURPOSE; and
+(2) Xilinx shall not be liable (whether in contract or tort,
+including negligence, or under any other theory of
+liability) for any loss or damage of any kind or nature
+related to, arising under or in connection with these
+materials, including for any direct, or any indirect,
+special, incidental, or consequential loss or damage
+(including loss of data, profits, goodwill, or any type of
+loss or damage suffered as a result of any action brought
+by a third party) even if such damage or loss was
+reasonably foreseeable or Xilinx had been advised of the
+possibility of the same.
+
+CRITICAL APPLICATIONS
+
+Xilinx products are not designed or intended to be fail-
+safe, or for use in any application requiring fail-safe
+performance, such as life-support or safety devices or
+systems, Class III medical devices, nuclear facilities,
+applications related to the deployment of airbags, or any
+other applications that could lead to death, personal
+injury, or severe property or environmental damage
+(individually and collectively, "Critical
+Applications"). Customer assumes the sole risk and
+liability of any use of Xilinx products in Critical
+Applications, subject only to applicable laws and
+regulations governing limitations on product liability.
+
+THIS COPYRIGHT NOTICE AND DISCLAIMER MUST BE RETAINED AS
+PART OF THIS FILE AT ALL TIMES.
+
+</FONT>
+</PRE>
+</BODY>
+</HTML>
