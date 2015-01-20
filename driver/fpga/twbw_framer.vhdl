@@ -99,10 +99,7 @@ end entity twbw_framer;
 architecture rtl of twbw_framer is
 
     -- state machine inspects the ADC from these signals
-    signal adc_fifo_in_full : std_logic_vector(TIME_WIDTH+DATA_WIDTH-1 downto 0);
     signal adc_fifo_in_ready : std_logic;
-    signal adc_fifo_out_full : std_logic_vector(TIME_WIDTH+DATA_WIDTH-1 downto 0);
-    signal adc_fifo_out_time : unsigned(TIME_WIDTH-1 downto 0);
     signal adc_fifo_out_data : std_logic_vector(DATA_WIDTH-1 downto 0);
     signal adc_fifo_out_valid : std_logic;
     signal adc_fifo_out_ready : std_logic;
@@ -160,7 +157,6 @@ begin
 
     --boolean condition tracking
     adc_active <= adc_active_i;
-    overflow <= adc_tvalid = '1' and adc_fifo_in_ready = '0';
     frame_done <= frame_count = to_unsigned(0, frame_count'length);
     burst_done <= burst_size = to_unsigned(0, burst_size'length);
 
@@ -178,17 +174,13 @@ begin
     port map (
         clk => clk,
         rst => rst,
-        in_data => adc_fifo_in_full,
+        in_data => adc_tdata,
         in_valid => adc_tvalid,
         in_ready => adc_fifo_in_ready,
-        out_data => adc_fifo_out_full,
+        out_data => adc_fifo_out_data,
         out_valid => adc_fifo_out_valid,
         out_ready => adc_fifo_out_ready
     );
-
-    adc_fifo_in_full <= std_logic_vector(in_time) & adc_tdata;
-    adc_fifo_out_data <= adc_fifo_out_full(DATA_WIDTH-1 downto 0);
-    adc_fifo_out_time <= unsigned(adc_fifo_out_full(TIME_WIDTH+DATA_WIDTH-1 downto DATA_WIDTH));
 
     adc_fifo_out_ready <=
         '1' when not adc_active_i else --always draining the fifo when inactive
@@ -301,6 +293,7 @@ begin
             frame_count <= to_unsigned(0, frame_count'length);
             stream_time <= to_unsigned(0, stream_time'length);
             stat_fifo_in_data <= (others => '0');
+            overflow <= false;
         else case state is
 
         when STATE_CTRL_IDLE =>
@@ -309,6 +302,7 @@ begin
             stat_fifo_in_data <= (others => '0');
             adc_active_i <= false;
             state <= STATE_CTRL_READ;
+            overflow <= false;
 
         when STATE_CTRL_READ =>
             if (ctrl_fifo_out_ready = '1' and ctrl_fifo_out_valid = '1') then
@@ -330,11 +324,11 @@ begin
             if (time_flag = '0') then
                 adc_active_i <= true;
                 state <= STATE_TIME0_OUT;
-                stream_time <= adc_fifo_out_time;
-            elsif (adc_fifo_out_time > stream_time) then
+                stream_time <= in_time;
+            elsif (in_time > stream_time) then
                 stat_fifo_in_data(126) <= '1';
                 state <= STATE_STAT_PRE;
-            elsif (adc_fifo_out_time = stream_time) then
+            elsif (in_time = stream_time) then
                 adc_active_i <= true;
                 state <= STATE_TIME0_OUT;
             end if;
@@ -356,6 +350,11 @@ begin
             end if;
 
         when STATE_SAMPS_OUT =>
+            --overflow indicator is sticky, only cleared by idle state
+            if (not overflow) then
+                overflow <= adc_tvalid = '1' and adc_fifo_in_ready = '0';
+            end if;
+
             --wait for the output fifo to accept a transfer
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
                 frame_count <= frame_count - 1;
