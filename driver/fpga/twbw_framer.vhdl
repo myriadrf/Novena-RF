@@ -86,8 +86,7 @@ entity twbw_framer is
         ctrl_tready : out std_logic;
 
         -- status bus interface
-        stat_tdata : out std_logic_vector(31 downto 0);
-        stat_tlast : out std_logic;
+        stat_tdata : out std_logic_vector(127 downto 0);
         stat_tvalid : out std_logic;
         stat_tready : in std_logic;
 
@@ -122,7 +121,7 @@ architecture rtl of twbw_framer is
     signal framed_fifo_out_full : std_logic_vector(2+DATA_WIDTH-1 downto 0);
     signal framed_fifo_in_full : std_logic_vector(2+DATA_WIDTH-1 downto 0);
     signal framed_fifo_in_data : std_logic_vector(DATA_WIDTH-1 downto 0);
-    signal framed_fifo_in_time : std_logic_vector(DATA_WIDTH-1 downto 0);
+    signal framed_fifo_in_time : std_logic_vector(1023 downto 0) := (others => '0');
     signal framed_fifo_in_user : std_logic_vector(0 downto 0);
     signal framed_fifo_in_last : std_logic;
     signal framed_fifo_in_valid : std_logic;
@@ -143,10 +142,27 @@ architecture rtl of twbw_framer is
         STATE_STAT_OUT);
     signal state : state_type;
 
-begin
-    assert (TIME_WIDTH > 64) report "twbw_framer: time width too large" severity failure;
+    -- state variables set by the state machine
+    signal time_flag : std_logic := '0';
+    signal burst_flag : std_logic := '0';
+    signal continuous_flag : std_logic := '0';
+    signal ctrl_tag : std_logic_vector(7 downto 0) := (others => '0');
+    signal burst_size : unsigned(31 downto 0) := to_unsigned(0, 32);
+    signal frame_size : unsigned(15 downto 0) := to_unsigned(0, 16);
+    signal frame_count : unsigned(15 downto 0) := to_unsigned(0, 16);
+    signal stream_time : unsigned(TIME_WIDTH-1 downto 0) := to_unsigned(0, TIME_WIDTH);
+    signal frame_done : boolean := false;
+    signal burst_done : boolean := false;
+    signal overflow : boolean := false;
 
+begin
+    assert (TIME_WIDTH <= 64) report "twbw_framer: time width too large" severity failure;
+
+    --boolean condition tracking
     adc_active <= adc_active_i;
+    overflow <= adc_tvalid = '1' and adc_fifo_in_ready = '0';
+    frame_done <= frame_count = to_unsigned(0, frame_count'length);
+    burst_done <= burst_size = to_unsigned(0, burst_size'length);
 
     --------------------------------------------------------------------
     -- short fifo between adc out and state machine
@@ -244,13 +260,24 @@ begin
         out_ready => out_tready
     );
 
-    framed_fifo_in_data <= adc_fifo_out_data when (state = STATE_SAMPS_OUT) else framed_fifo_in_time;
-    framed_fifo_in_user <= "1" when (state = STATE_TIME0_OUT or state = STATE_TIME0_OUT) else "0";
+    framed_fifo_in_time(TIME_WIDTH-1 downto 0) <= std_logic_vector(stream_time);
+    framed_fifo_in_data <=
+            adc_fifo_out_data when (state = STATE_SAMPS_OUT) else
+            framed_fifo_in_time(DATA_WIDTH-1 downto 0) when (state = STATE_TIME0_OUT) else
+            framed_fifo_in_time(DATA_WIDTH+DATA_WIDTH-1 downto DATA_WIDTH);
+    framed_fifo_in_user <= "1" when (state = STATE_TIME0_OUT or state = STATE_TIME1_OUT) else "0";
+
+    framed_fifo_in_last <= '1' when (state = STATE_SAMPS_OUT and (
+        overflow or -- an overflow event
+        frame_done or -- the frame ended
+        (burst_flag = '1' and burst_done) or -- burst mode and counted last sample in burst
+        (continuous_flag = '1' and ctrl_fifo_out_valid = '1') -- continuous mode and a new control message has arrived
+    )) else '0';
 
     framed_fifo_in_full <= framed_fifo_in_user & framed_fifo_in_last & framed_fifo_in_data;
     framed_fifo_in_valid <=
         adc_fifo_out_valid when (state = STATE_SAMPS_OUT) else
-        '1' when (state = STATE_TIME0_OUT or state = STATE_TIME0_OUT) else '0';
+        '1' when (state = STATE_TIME0_OUT or state = STATE_TIME1_OUT) else '0';
 
     out_tdata <= framed_fifo_out_full(DATA_WIDTH-1 downto 0);
     out_tlast <= framed_fifo_out_full(DATA_WIDTH);
@@ -259,63 +286,20 @@ begin
     --------------------------------------------------------------------
     -- framer state machine
     --------------------------------------------------------------------
-    process (clk)
-        variable time_flag : std_logic;
-        variable burst_flag : std_logic;
-        variable continuous_flag : std_logic;
-        variable ctrl_tag : std_logic_vector(7 downto 0);
-        variable burst_size : unsigned(31 downto 0);
-        variable frame_size : unsigned(15 downto 0);
-        variable frame_count : unsigned(15 downto 0);
-        variable stream_time : unsigned(TIME_WIDTH-1 downto 0);
-        variable frame_done : boolean;
-        variable burst_done : boolean;
-        variable overflow : boolean;
-    begin
-
-    --------------------------------------------------------------------
-    -- end of frame tlast signal generation
-    --------------------------------------------------------------------
-    overflow := adc_tvalid = '1' and adc_fifo_in_ready = '0';
-    frame_done := frame_count = to_unsigned(0, frame_count'length);
-    burst_done := burst_size = to_unsigned(0, burst_size'length);
-    if (
-        overflow or -- an overflow event
-        frame_done or -- the frame ended
-        (burst_flag = '1' and burst_done) or -- burst mode and counted last sample in burst
-        (continuous_flag = '1' and ctrl_fifo_out_valid = '1') -- continuous mode and a new control message has arrived
-    ) then
-        framed_fifo_in_last <= '1';
-    else
-        framed_fifo_in_last <= '0';
-    end if;
-
-    --------------------------------------------------------------------
-    -- time out mux for different data widths
-    --------------------------------------------------------------------
-    framed_fifo_in_time <= (others => '0');
-    if (TIME_WIDTH > DATA_WIDTH) then
-        if (state = STATE_TIME0_OUT) then
-            framed_fifo_in_time <= std_logic_vector(stream_time(DATA_WIDTH-1 downto 0));
-        else
-            framed_fifo_in_time(TIME_WIDTH-DATA_WIDTH-1 downto 0) <= std_logic_vector(stream_time(TIME_WIDTH-DATA_WIDTH-1 downto 0));
-        end if;
-    else
-        framed_fifo_in_time(TIME_WIDTH-1 downto 0) <= std_logic_vector(stream_time(TIME_WIDTH-1 downto 0));
-    end if;
+    process (clk) begin
 
     if (rising_edge(clk)) then
         if (rst = '1') then
             adc_active_i <= false;
             state <= STATE_CTRL_IDLE;
-            time_flag := '0';
-            burst_flag := '0';
-            continuous_flag := '0';
-            ctrl_tag := (others => '0');
-            burst_size := to_unsigned(0, burst_size'length);
-            frame_size := to_unsigned(0, frame_size'length);
-            frame_count := to_unsigned(0, frame_count'length);
-            stream_time := to_unsigned(0, stream_time'length);
+            time_flag <= '0';
+            burst_flag <= '0';
+            continuous_flag <= '0';
+            ctrl_tag <= (others => '0');
+            burst_size <= to_unsigned(0, burst_size'length);
+            frame_size <= to_unsigned(0, frame_size'length);
+            frame_count <= to_unsigned(0, frame_count'length);
+            stream_time <= to_unsigned(0, stream_time'length);
             stat_fifo_in_data <= (others => '0');
         else case state is
 
@@ -327,27 +311,26 @@ begin
             state <= STATE_CTRL_READ;
 
         when STATE_CTRL_READ =>
-            --register all relevant fields from the control message
-            time_flag := ctrl_fifo_out_data(127);
-            burst_flag := ctrl_fifo_out_data(124);
-            continuous_flag := ctrl_fifo_out_data(123);
-            ctrl_tag := ctrl_fifo_out_data(119 downto 112);
-            frame_size := unsigned(ctrl_fifo_out_data(111 downto 96));
-            burst_size := unsigned(ctrl_fifo_out_data(95 downto 64));
-            stream_time := unsigned(ctrl_fifo_out_data(TIME_WIDTH-1 downto 0));
-
             if (ctrl_fifo_out_ready = '1' and ctrl_fifo_out_valid = '1') then
+                --register all relevant fields from the control message
+                time_flag <= ctrl_fifo_out_data(127);
+                burst_flag <= ctrl_fifo_out_data(124);
+                continuous_flag <= ctrl_fifo_out_data(123);
+                ctrl_tag <= ctrl_fifo_out_data(119 downto 112);
+                frame_size <= unsigned(ctrl_fifo_out_data(111 downto 96));
+                burst_size <= unsigned(ctrl_fifo_out_data(95 downto 64));
+                stream_time <= unsigned(ctrl_fifo_out_data(TIME_WIDTH-1 downto 0));
                 state <= STATE_WAIT_TIME;
             end if;
 
         when STATE_WAIT_TIME =>
             --wait for the specified time to occur
             --if no time was specified, leave asap
-            frame_count := frame_size;
+            frame_count <= frame_size;
             if (time_flag = '0') then
                 adc_active_i <= true;
                 state <= STATE_TIME0_OUT;
-                stream_time := adc_fifo_out_time;
+                stream_time <= adc_fifo_out_time;
             elsif (adc_fifo_out_time > stream_time) then
                 stat_fifo_in_data(126) <= '1';
                 state <= STATE_STAT_PRE;
@@ -375,13 +358,13 @@ begin
         when STATE_SAMPS_OUT =>
             --wait for the output fifo to accept a transfer
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
-                frame_count := frame_count - 1;
-                burst_size := burst_size - 1;
+                frame_count <= frame_count - 1;
+                burst_size <= burst_size - 1;
             end if;
 
             --end this state under the various conditions below
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1' and framed_fifo_in_last = '1') then
-                time_flag := '0'; -- dont wait on time again
+                time_flag <= '0'; -- dont wait on time again
                 if (overflow) then
                     stat_fifo_in_data(125) <= '1';
                     state <= STATE_STAT_PRE;
