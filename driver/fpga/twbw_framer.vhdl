@@ -81,12 +81,14 @@ entity twbw_framer is
         out_tready : in std_logic;
 
         -- control bus interface
-        ctrl_tdata : in std_logic_vector(127 downto 0);
+        ctrl_tdata : in std_logic_vector(31 downto 0);
+        ctrl_tlast : in std_logic;
         ctrl_tvalid : in std_logic;
         ctrl_tready : out std_logic;
 
         -- status bus interface
-        stat_tdata : out std_logic_vector(127 downto 0);
+        stat_tdata : out std_logic_vector(31 downto 0);
+        stat_tlast : out std_logic;
         stat_tvalid : out std_logic;
         stat_tready : in std_logic;
 
@@ -135,7 +137,6 @@ architecture rtl of twbw_framer is
         STATE_TIME0_OUT,
         STATE_TIME1_OUT,
         STATE_SAMPS_OUT,
-        STATE_STAT_PRE,
         STATE_STAT_OUT);
     signal state : state_type;
 
@@ -190,21 +191,17 @@ begin
     -- short fifo between ctrl bus and state machine
     -- this fifo gives us a small command storage space
     --------------------------------------------------------------------
-    ctrl_fifo: entity work.StreamFifo
-    generic map (
-        --configure a small distributed ram
-        MEM_SIZE => 16,
-        SYNC_READ => false
-    )
+    ctrl_fifo: entity work.ctrl_msg_fifo128
     port map (
         clk => clk,
         rst => rst,
-        in_data => ctrl_tdata,
-        in_valid => ctrl_tvalid,
-        in_ready => ctrl_tready,
-        out_data => ctrl_fifo_out_data,
-        out_valid => ctrl_fifo_out_valid,
-        out_ready => ctrl_fifo_out_ready
+        in_tdata => ctrl_tdata,
+        in_tlast => ctrl_tlast,
+        in_tvalid => ctrl_tvalid,
+        in_tready => ctrl_tready,
+        out_tdata => ctrl_fifo_out_data,
+        out_tvalid => ctrl_fifo_out_valid,
+        out_tready => ctrl_fifo_out_ready
     );
 
     ctrl_fifo_out_ready <= '1' when (state = STATE_CTRL_READ) else '0';
@@ -213,21 +210,17 @@ begin
     -- short fifo between state machine and stat bus
     -- this fifo gives us a small status storage space
     --------------------------------------------------------------------
-    stat_fifo: entity work.StreamFifo
-    generic map (
-        --configure a small distributed ram
-        MEM_SIZE => 16,
-        SYNC_READ => false
-    )
+    stat_fifo: entity work.stat_msg_fifo128
     port map (
         clk => clk,
         rst => rst,
-        in_data => stat_fifo_in_data,
-        in_valid => stat_fifo_in_valid,
-        in_ready => stat_fifo_in_ready,
-        out_data => stat_tdata,
-        out_valid => stat_tvalid,
-        out_ready => stat_tready
+        in_tdata => stat_fifo_in_data,
+        in_tvalid => stat_fifo_in_valid,
+        in_tready => stat_fifo_in_ready,
+        out_tdata => stat_tdata,
+        out_tlast => stat_tlast,
+        out_tvalid => stat_tvalid,
+        out_tready => stat_tready
     );
 
     stat_fifo_in_valid <= '1' when (state = STATE_STAT_OUT) else '0';
@@ -280,6 +273,13 @@ begin
     --------------------------------------------------------------------
     process (clk) begin
 
+    --always load up the next status message
+    if (state /= STATE_STAT_OUT) then
+        stat_fifo_in_data(TIME_WIDTH-1 downto 0) <= std_logic_vector(in_time);
+        stat_fifo_in_data(127) <= '1'; --always has time flag for status
+        stat_fifo_in_data(119 downto 112) <= ctrl_tag;
+    end if;
+
     if (rising_edge(clk)) then
         if (rst = '1') then
             adc_active_i <= false;
@@ -327,7 +327,7 @@ begin
                 stream_time <= in_time;
             elsif (in_time > stream_time) then
                 stat_fifo_in_data(126) <= '1';
-                state <= STATE_STAT_PRE;
+                state <= STATE_STAT_OUT;
             elsif (in_time = stream_time) then
                 adc_active_i <= true;
                 state <= STATE_TIME0_OUT;
@@ -366,26 +366,19 @@ begin
                 time_flag <= '0'; -- dont wait on time again
                 if (overflow) then
                     stat_fifo_in_data(125) <= '1';
-                    state <= STATE_STAT_PRE;
+                    state <= STATE_STAT_OUT;
                 elsif (burst_flag = '1' and burst_done) then
                     stat_fifo_in_data(124) <= '1';
-                    state <= STATE_STAT_PRE;
+                    state <= STATE_STAT_OUT;
                 elsif (continuous_flag = '1' and ctrl_fifo_out_valid = '1') then
                     state <= STATE_CTRL_READ;
                 elsif (frame_done) then
                     state <= STATE_WAIT_TIME;
                 else
                     stat_fifo_in_data(123) <= '1';
-                    state <= STATE_STAT_PRE;
+                    state <= STATE_STAT_OUT;
                 end if;
             end if;
-
-        when STATE_STAT_PRE =>
-            --register the status message
-            stat_fifo_in_data(TIME_WIDTH-1 downto 0) <= std_logic_vector(in_time);
-            stat_fifo_in_data(127) <= '1'; --always has time flag for status
-            stat_fifo_in_data(119 downto 112) <= ctrl_tag;
-            state <= STATE_STAT_OUT;
 
         when STATE_STAT_OUT =>
             --wait for the status fifo to accept the transfer
