@@ -65,7 +65,8 @@ begin
         if (rising_edge(clk)) then
             if (rst = '1') then
                 syncValid := '0';
-            else
+            --valid is sticky once high until a transfer occurs
+            elsif (syncValid = '0' or (syncValid = '1' and out_ready = '1')) then
                 syncValid := Re;
             end if;
         end if;
