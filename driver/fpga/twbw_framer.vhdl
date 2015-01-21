@@ -44,6 +44,8 @@
 -- http://www.apache.org/licenses/LICENSE-2.0
 ------------------------------------------------------------------------
 
+library work;
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
