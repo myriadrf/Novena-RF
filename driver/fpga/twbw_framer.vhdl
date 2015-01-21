@@ -3,37 +3,59 @@
 --
 -- Control port documentation:
 --
--- Each control bus transaction contains a complete control message.
+-- Each control bus message consists of four 32-bit transactions.
+-- The last 32-bit transaction in each message has a tlast asserted.
 -- The message contains flags, a frame size, a burst size, and a time.
 -- The tag is forwarded to the status port to help identify status responses.
 -- The burst and time fields are only applicable when the burst and time
 -- flags are set respectively; but must always be present in the message.
 --
 -- Control bus format:
---   ctrl[127] - time stamp flag
---   ctrl[124] - finite burst flag
---   ctrl[123] - continuous flag
---   ctrl[119:112] - identifying tag (forwarded to status port)
---   ctrl[111:96] - frame size (number of transfers in a frame)
---   ctrl[95:64] - burst size (only used with finite burst flag)
---   ctrl[63:0] - 64 bit time in clock ticks (used with time flag)
+--   ctrl0[31] - time stamp flag
+--   ctrl0[28] - finite burst flag
+--   ctrl0[27] - continuous flag
+--   ctrl0[23:16] - identifying tag (forwarded to status port)
+--   ctrl0[15:0] - frame size (number of transfers in a frame)
+--   ctrl1[31:0] - burst size (only used with finite burst flag)
+--   ctrl2[31:0] - 64 bit time high in clock ticks (used with time flag)
+--   ctrl3[31:0] - 64 bit time low in clock ticks (used with time flag)
 --
 -- Status port documentation:
 --
--- Each status bus transaction contains a complete status message.
+-- Each status bus message consists of four 32-bit transactions.
+-- The last 32-bit transaction in each message has a tlast asserted.
 -- Each message contains a status indicator and the event time.
 -- A status message is reported upon burst completion,
 -- invalid time specification, overflow condition,
 -- and cessation of continuous streaming.
 --
 -- Status bus format:
---   stat[127] - time stamp flag indicates valid time
---   stat[126] - time error event occurred
---   stat[125] - overflow event occurred
---   stat[124] - finite burst ended
---   stat[123] - continuous streaming stopped
---   stat[119:112] - identifying tag (forwarded from control port)
---   stat[63:0] - 64 bit time in clock ticks (used with time flag)
+--   stat0[31] - time stamp flag indicates valid time
+--   stat0[30] - time error event occurred
+--   stat0[29] - overflow event occurred
+--   stat0[28] - finite burst ended
+--   stat0[27] - continuous streaming stopped
+--   stat0[23:16] - identifying tag (forwarded from control port)
+--   stat1[31:0] - unused
+--   stat2[31:0] - 64 bit time high in clock ticks (used with time flag)
+--   stat3[31:0] - 64 bit time low in clock ticks (used with time flag)
+--
+-- Output port documentation:
+--
+-- The output port contains framed sample data with 4 header lines.
+-- The last transaction in each frame has a tlast asserted.
+-- The output port data width may be larger than 32 bits,
+-- but only the first 32 bits of each header line are used.
+--
+-- Output bus format:
+--   out0[31] - time stamp flag indicates valid time
+--   out0[28] - finite burst flag (forwarded from control port)
+--   out0[27] - continuous flag (forwarded from control port)
+--   out0[23:16] - identifying tag (forwarded from control port)
+--   out0[15:0] - frame size (forwarded from control port)
+--   out1[31:0] - current burst size counting down to zero
+--   out2[31:0] - 64 bit time high in clock ticks (used with time flag)
+--   out3[31:0] - 64 bit time low in clock ticks (used with time flag)
 --
 -- Copyright (c) 2015-2015 Lime Microsystems
 -- Copyright (c) 2015-2015 Andrew "bunnie" Huang
@@ -52,7 +74,15 @@ entity twbw_framer is
 
         -- the width of the time bus
         -- the time bus can be no wider than 64 bits
-        TIME_WIDTH : positive := 48
+        TIME_WIDTH : positive := 48;
+
+        -- the size of the output fifo containing the framed data
+        -- either use a small number and provide external buffering
+        -- or set this to a reasonable size for your application
+        FIFO_DEPTH : positive := 1024;
+
+        -- the depth of the control and status fifos
+        CTRL_DEPTH : positive := 16
     );
     port(
         -- The ADC clock domain used for all interfaces.
@@ -120,7 +150,7 @@ architecture rtl of twbw_framer is
     signal framed_fifo_out_full : std_logic_vector(2+DATA_WIDTH-1 downto 0);
     signal framed_fifo_in_full : std_logic_vector(2+DATA_WIDTH-1 downto 0);
     signal framed_fifo_in_data : std_logic_vector(DATA_WIDTH-1 downto 0);
-    signal framed_fifo_in_time : std_logic_vector(1023 downto 0) := (others => '0');
+    signal framed_fifo_in_hdr : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     signal framed_fifo_in_user : std_logic_vector(0 downto 0);
     signal framed_fifo_in_last : std_logic;
     signal framed_fifo_in_valid : std_logic;
@@ -134,8 +164,10 @@ architecture rtl of twbw_framer is
         STATE_CTRL_IDLE,
         STATE_CTRL_READ,
         STATE_WAIT_TIME,
-        STATE_TIME0_OUT,
-        STATE_TIME1_OUT,
+        STATE_HDR0_OUT,
+        STATE_HDR1_OUT,
+        STATE_HDR2_OUT,
+        STATE_HDR3_OUT,
         STATE_SAMPS_OUT,
         STATE_STAT_OUT);
     signal state : state_type;
@@ -155,6 +187,7 @@ architecture rtl of twbw_framer is
 
 begin
     assert (TIME_WIDTH <= 64) report "twbw_framer: time width too large" severity failure;
+    assert (DATA_WIDTH >= 32) report "twbw_framer: data width too small" severity failure;
 
     --boolean condition tracking
     adc_active <= adc_active_i;
@@ -169,7 +202,7 @@ begin
     adc_fifo: entity work.StreamFifo
     generic map (
         --configure a small distributed ram
-        MEM_SIZE => 16,
+        MEM_SIZE => 16, --must be greater than the number of header and wait states
         SYNC_READ => false
     )
     port map (
@@ -192,6 +225,9 @@ begin
     -- this fifo gives us a small command storage space
     --------------------------------------------------------------------
     ctrl_fifo: entity work.ctrl_msg_fifo128
+    generic map (
+        MEM_SIZE => CTRL_DEPTH
+    )
     port map (
         clk => clk,
         rst => rst,
@@ -211,6 +247,9 @@ begin
     -- this fifo gives us a small status storage space
     --------------------------------------------------------------------
     stat_fifo: entity work.stat_msg_fifo128
+    generic map (
+        MEM_SIZE => CTRL_DEPTH
+    )
     port map (
         clk => clk,
         rst => rst,
@@ -230,9 +269,8 @@ begin
     --------------------------------------------------------------------
     framed_fifo : entity work.StreamFifo
     generic map (
-        --configure a small distributed ram
-        MEM_SIZE => 16,
-        SYNC_READ => false
+        MEM_SIZE => FIFO_DEPTH,
+        SYNC_READ => FIFO_DEPTH > 16
     )
     port map (
         clk => clk,
@@ -245,12 +283,12 @@ begin
         out_ready => out_tready
     );
 
-    framed_fifo_in_time(TIME_WIDTH-1 downto 0) <= std_logic_vector(stream_time);
-    framed_fifo_in_data <=
-            adc_fifo_out_data when (state = STATE_SAMPS_OUT) else
-            framed_fifo_in_time(DATA_WIDTH-1 downto 0) when (state = STATE_TIME0_OUT) else
-            framed_fifo_in_time(DATA_WIDTH+DATA_WIDTH-1 downto DATA_WIDTH);
-    framed_fifo_in_user <= "1" when (state = STATE_TIME0_OUT or state = STATE_TIME1_OUT) else "0";
+    framed_fifo_in_data <= adc_fifo_out_data when (state = STATE_SAMPS_OUT) else framed_fifo_in_hdr;
+    framed_fifo_in_user <= "1" when (
+        state = STATE_HDR0_OUT or
+        state = STATE_HDR1_OUT or
+        state = STATE_HDR2_OUT or
+        state = STATE_HDR3_OUT) else "0";
 
     framed_fifo_in_last <= '1' when (state = STATE_SAMPS_OUT and (
         overflow or -- an overflow event
@@ -261,8 +299,7 @@ begin
 
     framed_fifo_in_full <= framed_fifo_in_user & framed_fifo_in_last & framed_fifo_in_data;
     framed_fifo_in_valid <=
-        adc_fifo_out_valid when (state = STATE_SAMPS_OUT) else
-        '1' when (state = STATE_TIME0_OUT or state = STATE_TIME1_OUT) else '0';
+        adc_fifo_out_valid when (state = STATE_SAMPS_OUT) else framed_fifo_in_user(0);
 
     out_tdata <= framed_fifo_out_full(DATA_WIDTH-1 downto 0);
     out_tlast <= framed_fifo_out_full(DATA_WIDTH);
@@ -272,6 +309,21 @@ begin
     -- framer state machine
     --------------------------------------------------------------------
     process (clk) begin
+
+    framed_fifo_in_hdr <= (others => '0');
+    if (state = STATE_HDR0_OUT) then
+        framed_fifo_in_hdr(31) <= time_flag;
+        framed_fifo_in_hdr(28) <= burst_flag;
+        framed_fifo_in_hdr(27) <= continuous_flag;
+        framed_fifo_in_hdr(23 downto 16) <= ctrl_tag;
+        framed_fifo_in_hdr(15 downto 0) <= std_logic_vector(frame_size);
+    elsif (state = STATE_HDR1_OUT) then
+        framed_fifo_in_hdr(31 downto 0) <= std_logic_vector(burst_size);
+    elsif (state = STATE_HDR2_OUT) then
+        framed_fifo_in_hdr(TIME_WIDTH-32-1 downto 0) <= std_logic_vector(stream_time(TIME_WIDTH-1 downto 32));
+    elsif (state = STATE_HDR3_OUT) then
+        framed_fifo_in_hdr(31 downto 0) <= std_logic_vector(stream_time(31 downto 0));
+    end if;
 
     --always load up the next status message
     if (state /= STATE_STAT_OUT) then
@@ -323,27 +375,35 @@ begin
             frame_count <= frame_size;
             if (time_flag = '0') then
                 adc_active_i <= true;
-                state <= STATE_TIME0_OUT;
+                state <= STATE_HDR0_OUT;
                 stream_time <= in_time;
             elsif (in_time > stream_time) then
                 stat_fifo_in_data(126) <= '1';
                 state <= STATE_STAT_OUT;
             elsif (in_time = stream_time) then
                 adc_active_i <= true;
-                state <= STATE_TIME0_OUT;
+                state <= STATE_HDR0_OUT;
             end if;
 
-        when STATE_TIME0_OUT =>
+        when STATE_HDR0_OUT =>
             --wait for the output fifo to accept a transfer
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
-                if (TIME_WIDTH > DATA_WIDTH) then
-                    state <= STATE_TIME1_OUT;
-                else
-                    state <= STATE_SAMPS_OUT;
-                end if;
+                state <= STATE_HDR1_OUT;
             end if;
 
-        when STATE_TIME1_OUT =>
+        when STATE_HDR1_OUT =>
+            --wait for the output fifo to accept a transfer
+            if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
+                state <= STATE_HDR2_OUT;
+            end if;
+
+        when STATE_HDR2_OUT =>
+            --wait for the output fifo to accept a transfer
+            if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
+                state <= STATE_HDR3_OUT;
+            end if;
+
+        when STATE_HDR3_OUT =>
             --wait for the output fifo to accept a transfer
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1') then
                 state <= STATE_SAMPS_OUT;

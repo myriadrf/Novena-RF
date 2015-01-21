@@ -69,5 +69,6 @@ architecture rtl of twbw_deframer is
 
 begin
     assert (TIME_WIDTH <= 64) report "twbw_deframer: time width too large" severity failure;
+    assert (DATA_WIDTH >= 32) report "twbw_deframer: data width too small" severity failure;
 
 end architecture rtl;
