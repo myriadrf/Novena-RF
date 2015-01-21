@@ -50,13 +50,6 @@ use ieee.numeric_std.all;
 
 entity twbw_framer is
     generic(
-        -- the width of the ADC bus
-        DATA_WIDTH : positive := 32;
-
-        -- the width of the time bus
-        -- the time bus can be no wider than 64 bits
-        TIME_WIDTH : positive := 48;
-
         -- the size of the output fifo containing the framed data
         -- either use a small number and provide external buffering
         -- or set this to a reasonable size for your application
@@ -73,19 +66,19 @@ entity twbw_framer is
         rst : in std_logic;
 
         -- The current time in clock ticks.
-        in_time : in unsigned(TIME_WIDTH-1 downto 0);
+        in_time : in unsigned;
 
         -- Input ADC interface:
         -- There is no ready signal, a valid signal with no space => overflow.
         -- To allow for frame overhead, this bus cannot be valid every cycle.
         -- Many interfaces do not produce receive data at every clock cycle,
         -- If this is not the case, we recommend doubling the ADC data width.
-        adc_tdata : in std_logic_vector(DATA_WIDTH-1 downto 0);
+        adc_tdata : in std_logic_vector;
         adc_tvalid : in std_logic;
 
         -- Output stream interface:
         -- The tuser signal indicates metadata and not sample data.
-        out_tdata : out std_logic_vector(DATA_WIDTH-1 downto 0);
+        out_tdata : out std_logic_vector;
         out_tuser : out std_logic_vector(0 downto 0);
         out_tlast : out std_logic;
         out_tvalid : out std_logic;
@@ -104,6 +97,9 @@ entity twbw_framer is
 end entity twbw_framer;
 
 architecture rtl of twbw_framer is
+
+    constant DATA_WIDTH : positive := adc_tdata'length;
+    constant TIME_WIDTH : positive := in_time'length;
 
     -- state machine inspects the ADC from these signals
     signal adc_fifo_in_ready : std_logic;
