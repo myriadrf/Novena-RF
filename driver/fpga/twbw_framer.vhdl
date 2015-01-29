@@ -57,7 +57,7 @@ entity twbw_framer is
         -- or set this to a reasonable size for your application
         FIFO_DEPTH : positive := 1024;
 
-        -- the depth of the control and status fifos
+        -- the depth of the control fifo
         CTRL_DEPTH : positive := 16
     );
     port(
@@ -165,7 +165,6 @@ begin
     --------------------------------------------------------------------
     -- short fifo between adc out and state machine
     -- this fifo ensures a continuous streaming despite framing overhead
-    -- the input time is associated with each adc data in this fifo
     --------------------------------------------------------------------
     adc_fifo: entity work.StreamFifo
     generic map (
@@ -190,7 +189,7 @@ begin
 
     --------------------------------------------------------------------
     -- short fifo between ctrl bus and state machine
-    -- this fifo gives us a small command storage space
+    -- this fifo changes size and gives storage space
     --------------------------------------------------------------------
     ctrl_fifo: entity work.ctrl_msg_fifo128
     generic map (
@@ -211,7 +210,7 @@ begin
     ctrl_fifo_out_ready <= '1' when (state = STATE_CTRL_READ) else '0';
 
     --------------------------------------------------------------------
-    -- short fifo between state machine and output stream
+    -- fifo between state machine and output stream
     --------------------------------------------------------------------
     framed_fifo : entity work.StreamFifo
     generic map (
