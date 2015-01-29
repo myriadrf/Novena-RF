@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <report-views version="2.0" >
  <header>
-  <DateModified>2014-08-18T16:23:56</DateModified>
+  <DateModified>2015-01-15T22:54:53</DateModified>
   <ModuleName>top</ModuleName>
   <SummaryTimeStamp>2014-08-18T16:23:42</SummaryTimeStamp>
-  <SavedFilePath>D:/LimeMicrosystems/xilinx/projects/novena_lms/iseconfig/top.xreport</SavedFilePath>
-  <ImplementationReportsDirectory>D:/LimeMicrosystems/xilinx/projects/novena_lms\</ImplementationReportsDirectory>
+  <SavedFilePath>/home/jblum/src/Novena-RF/gateware/src/iseconfig/top.xreport</SavedFilePath>
+  <ImplementationReportsDirectory>/home/jblum/src/Novena-RF/gateware/src/</ImplementationReportsDirectory>
   <DateInitialized>2014-07-09T15:22:51</DateInitialized>
   <EnableMessageFiltering>false</EnableMessageFiltering>
  </header>

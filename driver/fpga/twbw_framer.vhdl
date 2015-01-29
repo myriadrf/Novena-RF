@@ -6,7 +6,7 @@
 -- Each control bus message consists of four 32-bit transactions.
 -- The last 32-bit transaction in each message has a tlast asserted.
 -- The message contains flags, a frame size, a burst size, and a time.
--- The tag is forwarded to the status port to help identify status responses.
+-- The tag is forwarded to the output port to help identify the message.
 -- The burst and time fields are only applicable when the burst and time
 -- flags are set respectively; but must always be present in the message.
 --
@@ -138,6 +138,7 @@ architecture rtl of twbw_framer is
         STATE_HDR3_OUT,
         STATE_SAMPS_OUT);
     signal state : state_type;
+    signal state_num : unsigned(7 downto 0);
 
     -- state variables set by the state machine
     signal time_flag : std_logic := '0';
@@ -156,6 +157,8 @@ architecture rtl of twbw_framer is
 begin
     assert (TIME_WIDTH <= 64) report "twbw_framer: time width too large" severity failure;
     assert (DATA_WIDTH >= 32) report "twbw_framer: data width too small" severity failure;
+
+    state_num <= to_unsigned(state_type'pos(state), 8);
 
     --boolean condition tracking
     adc_active <= adc_active_i;
