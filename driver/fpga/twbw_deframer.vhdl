@@ -252,7 +252,9 @@ begin
     --------------------------------------------------------------------
     -- deframer state machine
     --------------------------------------------------------------------
-    process (clk) begin
+    process (clk)
+        variable time_wait0 : boolean := false;
+    begin
 
     if (rising_edge(clk)) then
 
@@ -272,6 +274,7 @@ begin
             stream_time <= to_unsigned(0, TIME_WIDTH);
             time_error <= '0';
             end_burst <= '0';
+            time_wait0 := false;
         else case state is
 
         when STATE_TX_IDLE =>
@@ -322,6 +325,7 @@ begin
                     state <= STATE_TX_IDLE; --tlast here?
                 else
                     state <= STATE_WAIT_TIME;
+                    time_wait0 := true;
                 end if;
             end if;
 
@@ -330,12 +334,16 @@ begin
             --if no time was specified, leave asap
             --we ignore the time if the dac is already active
             --to support back to back timestamped packets
+            time_wait0 := false;
             if (time_flag = '0' or dac_active_i) then
                 state <= STATE_SAMPS_IN;
-            elsif (in_time > stream_time) then
+            --time_wait0 ensures that we can only have late errors on the first cycle in this state
+            --this is because the time can increment in skips and we need to know when >= happens
+            --in subsequent states to properly wait for the time event to have just occurred
+            elsif (in_time > stream_time and time_wait0) then
                 time_error <= '1';
                 state <= STATE_DRAIN_SAMPS;
-            elsif (in_time = stream_time) then
+            elsif (in_time >= stream_time) then
                 state <= STATE_SAMPS_IN;
             end if;
 

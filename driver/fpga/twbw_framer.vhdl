@@ -256,7 +256,9 @@ begin
     --------------------------------------------------------------------
     -- framer state machine
     --------------------------------------------------------------------
-    process (clk) begin
+    process (clk)
+        variable time_wait0 : boolean := false;
+    begin
 
     framed_fifo_in_hdr <= (others => '0');
     if (state = STATE_HDR0_OUT) then
@@ -288,6 +290,7 @@ begin
             stream_time <= to_unsigned(0, stream_time'length);
             overflow <= '0';
             time_error <= '0';
+            time_wait0 := false;
         else case state is
 
         when STATE_CTRL_IDLE =>
@@ -309,21 +312,26 @@ begin
                 burst_size <= unsigned(ctrl_fifo_out_data(95 downto 64));
                 stream_time <= unsigned(ctrl_fifo_out_data(TIME_WIDTH-1 downto 0));
                 state <= STATE_WAIT_TIME;
+                time_wait0 := true;
             end if;
 
         when STATE_WAIT_TIME =>
             --wait for the specified time to occur
             --if no time was specified, leave asap
             frame_count <= frame_size;
+            time_wait0 := false;
             if (time_flag = '0') then
                 adc_active_i <= true;
                 state <= STATE_HDR0_OUT;
                 stream_time <= in_time;
-            elsif (in_time > stream_time) then
+            --time_wait0 ensures that we can only have late errors on the first cycle in this state
+            --this is because the time can increment in skips and we need to know when >= happens
+            --in subsequent states to properly wait for the time event to have just occurred
+            elsif (in_time > stream_time and time_wait0) then
                 time_error <= '1';
                 state <= STATE_HDR0_OUT;
                 stream_time <= in_time;
-            elsif (in_time = stream_time) then
+            elsif (in_time >= stream_time) then
                 adc_active_i <= true;
                 state <= STATE_HDR0_OUT;
             end if;
