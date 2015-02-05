@@ -12,6 +12,17 @@
 
 #define MODULE_NAME "novena_rf"
 
+/*!
+ * All module data, mappings, etc...
+ */
+typedef struct
+{
+    //devfs registration
+    dev_t dev_num;
+    struct cdev c_dev;
+    struct class *cl;
+} novena_rf_module_t;
+
 //! IOCTL access for user to control allocations
 long novena_rf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 

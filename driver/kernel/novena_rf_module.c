@@ -23,10 +23,7 @@ static struct file_operations novena_rf_fops = {
     release: novena_rf_release
 };
 
-//devfs registration
-static dev_t dev_num;
-static struct cdev c_dev;
-static struct class *cl;
+static novena_rf_module_t module_data;
 
 /***********************************************************************
  * Module entry point
@@ -34,27 +31,27 @@ static struct class *cl;
 static int novena_rf_module_init(void)
 {
     //register the character device
-    if (alloc_chrdev_region(&dev_num, 0, 1, MODULE_NAME) < 0)
+    if (alloc_chrdev_region(&module_data.dev_num, 0, 1, MODULE_NAME) < 0)
     {
         return -1;
     }
-    if ((cl = class_create(THIS_MODULE, MODULE_NAME)) == NULL)
+    if ((module_data.cl = class_create(THIS_MODULE, MODULE_NAME)) == NULL)
     {
-        unregister_chrdev_region(dev_num, 1);
+        unregister_chrdev_region(module_data.dev_num, 1);
         return -1;
     }
-    if (device_create(cl, NULL, dev_num, NULL, MODULE_NAME) == NULL)
+    if (device_create(module_data.cl, NULL, module_data.dev_num, NULL, MODULE_NAME) == NULL)
     {
-        class_destroy(cl);
-        unregister_chrdev_region(dev_num, 1);
+        class_destroy(module_data.cl);
+        unregister_chrdev_region(module_data.dev_num, 1);
         return -1;
     }
-    cdev_init(&c_dev, &novena_rf_fops);
-    if (cdev_add(&c_dev, dev_num, 1) == -1)
+    cdev_init(&module_data.c_dev, &novena_rf_fops);
+    if (cdev_add(&module_data.c_dev, module_data.dev_num, 1) == -1)
     {
-        device_destroy(cl, dev_num);
-        class_destroy(cl);
-        unregister_chrdev_region(dev_num, 1);
+        device_destroy(module_data.cl, module_data.dev_num);
+        class_destroy(module_data.cl);
+        unregister_chrdev_region(module_data.dev_num, 1);
         return -1;
     }
     return 0;
@@ -66,10 +63,10 @@ static int novena_rf_module_init(void)
 static void novena_rf_module_exit(void)
 {
     //remove the character device
-    cdev_del(&c_dev);
-    device_destroy(cl, dev_num);
-    class_destroy(cl);
-    unregister_chrdev_region(dev_num, 1);
+    cdev_del(&module_data.c_dev);
+    device_destroy(module_data.cl, module_data.dev_num);
+    class_destroy(module_data.cl);
+    unregister_chrdev_region(module_data.dev_num, 1);
 }
 
 /***********************************************************************
