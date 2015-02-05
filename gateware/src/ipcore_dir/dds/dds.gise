@@ -15,11 +15,11 @@
 
   <!--                                                          -->
 
-  <!-- Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved. -->
+  <!-- Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved. -->
 
   <version xmlns="http://www.xilinx.com/XMLSchema">11.1</version>
 
-  <sourceproject xmlns="http://www.xilinx.com/XMLSchema" xil_pn:fileType="FILE_XISE" xil_pn:name="dds.xise"/>
+  <sourceproject xmlns="http://www.xilinx.com/XMLSchema" xil_pn:fileType="FILE_XISE" xil_pn:name="../../../../ipcore_dir/dds/dds.xise"/>
 
   <files xmlns="http://www.xilinx.com/XMLSchema">
     <file xil_pn:fileType="FILE_ASY" xil_pn:name="dds.asy" xil_pn:origination="imported"/>
