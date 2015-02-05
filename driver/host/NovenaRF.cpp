@@ -12,7 +12,6 @@
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Registry.hpp>
 #include <SoapySDR/Logger.hpp>
-#include <SoapySDR/Modules.hpp>
 
 #include <stdexcept>
 #include <cstdlib>
@@ -40,7 +39,6 @@ public:
         _novena_fd = open(NOVENA_RF_DEVFS, O_RDWR | O_SYNC);
         if (_novena_fd <= 0)
         {
-            perror("open("NOVENA_RF_DEVFS")");
             throw std::runtime_error("Failed to open "NOVENA_RF_DEVFS": " + std::string(strerror(errno)));
         }
     }
@@ -148,7 +146,7 @@ std::vector<SoapySDR::Kwargs> findNovenaRF(const SoapySDR::Kwargs &args)
 SoapySDR::Device *makeNovenaRF(const SoapySDR::Kwargs &args)
 {
     if (args.count("fpga") != 0) novenaRF_loadFpga(args.at("fpga"));
-    else novenaRF_loadFpga(SoapySDR::getRootPath() + FPGA_PATH_SUFFIX);
+    else novenaRF_loadFpga(FPGA_IMAGE_PATH);
     return new NovenaRF();
 }
 

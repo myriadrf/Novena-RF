@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h> //mmap
 #include <unistd.h> //close
 
 #include "xilinx_user_gpio.h"
@@ -43,6 +44,7 @@ echo "configuring FPGA"
 dd if=$1 of=/dev/spidev2.0 bs=128
 
 echo "turning on clock to FPGA"
+devmem2 0x020c8160 w 0x00000D2B
 */
 
 void novenaRF_loadFpga(const std::string &fpgaImage)
@@ -60,7 +62,6 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
     FILE *fpga_fp = fopen(fpgaImage.c_str(), "rb");
     if (fpga_fp == NULL)
     {
-        perror("open("NOVENA_RF_DEVFS")");
         throw std::runtime_error("Failed to open "+fpgaImage+": " + std::string(strerror(errno)));
     }
 
@@ -69,7 +70,6 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
     if (spi_fd < 0)
     {
         fclose(fpga_fp);
-        perror("open("FPGA_LOAD_SPIDEV")");
         throw std::runtime_error("Failed to open "FPGA_LOAD_SPIDEV": " + std::string(strerror(errno)));
     }
 
@@ -83,4 +83,12 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
 
     fclose(fpga_fp);
     close(spi_fd);
+
+    //turning clocks on ... TODO move to kernel driver...
+    #define MAP_SIZE 4096UL
+    #define MAP_MASK (MAP_SIZE - 1)
+    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    void *map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x020c8160 & ~MAP_MASK);
+    char *virt_addr = ((char *)(map_base) + (0x020c8160 & MAP_MASK));
+    *((unsigned int *) virt_addr) = 0x00000D2B;
 }

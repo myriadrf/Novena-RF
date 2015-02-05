@@ -30,7 +30,7 @@ endif ()
 include_directories(../kernel)
 
 SOAPY_SDR_MODULE_UTIL(
-    TARGET SoapySDRNovenaRF
+    TARGET NovenaRF
     SOURCES
         NovenaRF.cpp
         LoadFPGA.cpp

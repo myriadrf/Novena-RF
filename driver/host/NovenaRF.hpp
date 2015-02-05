@@ -15,7 +15,7 @@
  **********************************************************************/
 #define NOVENA_RF_DEVFS "/dev/novena_rf"
 
-#define FPGA_PATH_SUFFIX "/share/SoapySDR/novena_rf.bit"
+#define FPGA_IMAGE_PATH "/lib/firmware/novena_rf.bit"
 
 #define FPGA_RESET_GPIO 135
 #define FPGA_LOAD_SPIDEV "/dev/spidev2.0"
