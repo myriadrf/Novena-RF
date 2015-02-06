@@ -1,0 +1,2 @@
+vhdl work ../../bclk_dll.vhd
+vhdl work ../example_design/bclk_dll_exdes.vhd

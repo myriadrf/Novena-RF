@@ -1,0 +1,254 @@
+### extended performance annotation
+CONFIG VCCAUX  = 3.3;
+# Valid values are 2.5 and 3.3
+CONFIG MCB_PERFORMANCE  = EXTENDED;
+
+### define setup/hold constraints for EIM
+OFFSET = IN 4125 ps VALID 4750 ps BEFORE "eim_bus/bclk";
+# this was also supposed to be IN 4125 ps VALID 625 ps BEFORE "bclk", but
+# the computation gives me -3.5ns slack on hold time, so...add 4750 ps to the hold again.
+#5200 ps is the true limit
+OFFSET = OUT 5100 ps AFTER "eim_bus/bclk";
+
+
+
+NET "eim_bus/clk" TNM_NET = "clk_tnm";
+NET "eim_bus/bclk" TNM_NET = "bclk_tnm";
+
+TIMESPEC TS_clk = PERIOD "clk_tnm" 50 MHz;
+TIMESPEC TS_bclk = PERIOD "bclk_tnm" 133 MHz;
+
+
+
+
+
+#NET "eim_bus/eim_d_t*" TIG;
+NET "eim_bus/oens" TIG;
+INST "eim_bus/oddr2_eim0" IOB =FORCE;
+INST "eim_bus/oddr2_eim1" IOB =FORCE;
+INST "eim_bus/oddr2_eim2" IOB =FORCE;
+INST "eim_bus/oddr2_eim3" IOB =FORCE;
+INST "eim_bus/oddr2_eim4" IOB =FORCE;
+INST "eim_bus/oddr2_eim5" IOB =FORCE;
+INST "eim_bus/oddr2_eim6" IOB =FORCE;
+INST "eim_bus/oddr2_eim7" IOB =FORCE;
+INST "eim_bus/oddr2_eim8" IOB =FORCE;
+INST "eim_bus/oddr2_eim9" IOB =FORCE;
+INST "eim_bus/oddr2_eimA" IOB =FORCE;
+INST "eim_bus/oddr2_eimB" IOB =FORCE;
+INST "eim_bus/oddr2_eimC" IOB =FORCE;
+INST "eim_bus/oddr2_eimD" IOB =FORCE;
+INST "eim_bus/oddr2_eimE" IOB =FORCE;
+INST "eim_bus/oddr2_eimF" IOB =FORCE;
+
+
+
+
+#Created by Constraints Editor (xc6slx45-csg324-3) - 2014/07/09
+#################################
+# Clock From MyriadRF
+#################################
+NET "clk_in" TNM_NET = "clk_in";
+TIMESPEC TS_clk_in = PERIOD "clk_in" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
+OFFSET = OUT 20 ns AFTER "clk_in";
+#INST "clk_in_BUFGP" LOC = R10; #H3;
+NET "clk_in" LOC = R10; #H3;
+NET "clk_in" IOSTANDARD = LVCMOS33;
+
+#################################
+# Clock From iMX6Q
+#################################
+#NET "cpu_clk" TNM_NET = "cpu_clk";
+#TIMESPEC TS_cpu_clk = PERIOD "cpu_clk" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
+#OFFSET = OUT 20 ns AFTER "cpu_clk";
+#INST "cpu_clk_BUFGP" LOC = H2;
+#NET "cpu_clk" LOC = H2;
+#NET "cpu_clk" IOSTANDARD = LVCMOS33;
+
+# PlanAhead Generated physical constraints 
+
+NET "CLK2_N" LOC = H1;
+NET "CLK2_N" IOSTANDARD = LVDS_33;
+NET "CLK2_N" DIFF_TERM = "TRUE";
+NET "CLK2_P" LOC = H2;
+NET "CLK2_P" IOSTANDARD = LVDS_33;
+NET "CLK2_P" DIFF_TERM = "TRUE";
+
+
+NET "FPGA_LED2" LOC = A16;
+NET "FPGA_LED2" IOSTANDARD = LVCMOS33;
+
+NET "APOPTOSIS" LOC = K1;
+NET "APOPTOSIS" IOSTANDARD = LVCMOS33;
+
+NET "RESETBMCU" LOC = F1;
+NET "RESETBMCU" IOSTANDARD = LVCMOS33;
+
+NET "lms_rxen" LOC = P2; #
+NET "lms_rxen" IOSTANDARD = LVCMOS33;
+
+NET "lms_txen" LOC = M1; #
+NET "lms_txen" IOSTANDARD = LVCMOS33;
+
+NET "lms_lmsrst" LOC = V5;
+NET "lms_lmsrst" IOSTANDARD = LVCMOS33;
+#NET "lms_lmsrst" LOC = U5;
+#NET "lms_lmsrst" IOSTANDARD = LVCMOS33;
+
+NET "lms_sen" LOC = L4; #
+NET "lms_sen" IOSTANDARD = LVCMOS33;
+NET "cpu_sen" LOC = B3;
+NET "cpu_sen" IOSTANDARD = LVCMOS33;
+
+NET "lms_sclk" LOC = M5; #
+NET "lms_sclk" IOSTANDARD = LVCMOS33;
+NET "cpu_sclk" LOC = D9;
+NET "cpu_sclk" IOSTANDARD = LVCMOS33;
+
+NET "lms_miso" LOC = V7; #
+NET "lms_miso" IOSTANDARD = LVCMOS33;
+NET "cpu_miso" LOC = A3;
+NET "cpu_miso" IOSTANDARD = LVCMOS33;
+
+NET "lms_mosi" LOC = U7; #
+NET "lms_mosi" IOSTANDARD = LVCMOS33;
+NET "cpu_mosi" LOC = A2;
+NET "cpu_mosi" IOSTANDARD = LVCMOS33;
+
+#NET "mrf_gpio0" LOC = R3; #
+#NET "mrf_gpio0" IOSTANDARD = LVCMOS33;
+#NET "mrf_gpio1" LOC = K4; #
+#NET "mrf_gpio1" IOSTANDARD = LVCMOS33;
+#NET "mrf_gpio2" LOC = K3; #
+#NET "mrf_gpio2" IOSTANDARD = LVCMOS33;
+
+
+
+NET "TXIQSEL" LOC = L1; #L2;
+NET "TXIQSEL" IOSTANDARD = LVCMOS33;
+
+NET "TXD[0]" LOC = L2; #L1;
+NET "TXD[0]" IOSTANDARD = LVCMOS33;
+NET "TXD[1]" LOC = V13; #
+NET "TXD[1]" IOSTANDARD = LVCMOS33;
+NET "TXD[2]" LOC = K5; #K5;
+NET "TXD[2]" IOSTANDARD = LVCMOS33;
+NET "TXD[3]" LOC = U11; #
+NET "TXD[3]" IOSTANDARD = LVCMOS33;
+NET "TXD[4]" LOC = L5; #L5;
+NET "TXD[4]" IOSTANDARD = LVCMOS33;
+NET "TXD[5]" LOC = V11; #
+NET "TXD[5]" IOSTANDARD = LVCMOS33;
+NET "TXD[6]" LOC = U10; #U10;
+NET "TXD[6]" IOSTANDARD = LVCMOS33;
+NET "TXD[7]" LOC = R8; #P6; 
+NET "TXD[7]" IOSTANDARD = LVCMOS33;
+NET "TXD[8]" LOC = V10; #V10;
+NET "TXD[8]" IOSTANDARD = LVCMOS33;
+NET "TXD[9]" LOC = T8; #R8;
+NET "TXD[9]" IOSTANDARD = LVCMOS33;
+NET "TXD[10]" LOC = N5; #N5;
+NET "TXD[10]" IOSTANDARD = LVCMOS33;
+NET "TXD[11]" LOC = T9; #T8;
+NET "TXD[11]" IOSTANDARD = LVCMOS33;
+
+NET "RXIQSEL" LOC = H3;
+NET "RXIQSEL" IOSTANDARD = LVCMOS33;
+NET "RXD[0]" LOC = P6;
+NET "RXD[0]" IOSTANDARD = LVCMOS33;
+NET "RXD[1]" LOC = V9;
+NET "RXD[1]" IOSTANDARD = LVCMOS33;
+NET "RXD[2]" LOC = T10;
+NET "RXD[2]" IOSTANDARD = LVCMOS33;
+NET "RXD[3]" LOC = U8;
+NET "RXD[3]" IOSTANDARD = LVCMOS33;
+NET "RXD[4]" LOC = R5;
+NET "RXD[4]" IOSTANDARD = LVCMOS33;
+NET "RXD[5]" LOC = V8;
+NET "RXD[5]" IOSTANDARD = LVCMOS33;
+NET "RXD[6]" LOC = T5;
+NET "RXD[6]" IOSTANDARD = LVCMOS33;
+NET "RXD[7]" LOC = R7;
+NET "RXD[7]" IOSTANDARD = LVCMOS33;
+NET "RXD[8]" LOC = T4;
+NET "RXD[8]" IOSTANDARD = LVCMOS33;
+NET "RXD[9]" LOC = T7;
+NET "RXD[9]" IOSTANDARD = LVCMOS33;
+NET "RXD[10]" LOC = T3;
+NET "RXD[10]" IOSTANDARD = LVCMOS33;
+NET "RXD[11]" LOC = V6;
+NET "RXD[11]" IOSTANDARD = LVCMOS33;
+
+
+
+NET "EIM_BCLK" LOC = C9;
+NET "EIM_BCLK" IOSTANDARD = LVCMOS33;
+NET "EIM_CS[0]" LOC = B11;
+NET "EIM_CS[0]" IOSTANDARD = LVCMOS33;
+NET "EIM_CS[1]" LOC = A15;
+NET "EIM_CS[1]" IOSTANDARD = LVCMOS33;
+
+NET "EIM_DA[0]" LOC = G9;
+NET "EIM_DA[0]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[0]" SLEW = FAST;
+NET "EIM_DA[1]" LOC = A10;
+NET "EIM_DA[1]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[1]" SLEW = FAST;
+NET "EIM_DA[2]" LOC = F9;
+NET "EIM_DA[2]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[2]" SLEW = FAST;
+NET "EIM_DA[3]" LOC = B9;
+NET "EIM_DA[3]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[3]" SLEW = FAST;
+NET "EIM_DA[4]" LOC = E13;
+NET "EIM_DA[4]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[4]" SLEW = FAST;
+NET "EIM_DA[5]" LOC = F13;
+NET "EIM_DA[5]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[5]" SLEW = FAST;
+NET "EIM_DA[6]" LOC = A9;
+NET "EIM_DA[6]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[6]" SLEW = FAST;
+NET "EIM_DA[7]" LOC = A8;
+NET "EIM_DA[7]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[7]" SLEW = FAST;
+NET "EIM_DA[8]" LOC = B8;
+NET "EIM_DA[8]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[8]" SLEW = FAST;
+NET "EIM_DA[9]" LOC = D8;
+NET "EIM_DA[9]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[9]" SLEW = FAST;
+NET "EIM_DA[10]" LOC = D11;
+NET "EIM_DA[10]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[10]" SLEW = FAST;
+NET "EIM_DA[11]" LOC = C8;
+NET "EIM_DA[11]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[11]" SLEW = FAST;
+NET "EIM_DA[12]" LOC = C7;
+NET "EIM_DA[12]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[12]" SLEW = FAST;
+NET "EIM_DA[13]" LOC = C11;
+NET "EIM_DA[13]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[13]" SLEW = FAST;
+NET "EIM_DA[14]" LOC = C4;
+NET "EIM_DA[14]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[14]" SLEW = FAST;
+NET "EIM_DA[15]" LOC = B6;
+NET "EIM_DA[15]" IOSTANDARD = LVCMOS33;
+NET "EIM_DA[15]" SLEW = FAST;
+
+NET "EIM_A[16]" LOC = A11;
+NET "EIM_A[16]" IOSTANDARD = LVCMOS33;
+NET "EIM_A[17]" LOC = B12;
+NET "EIM_A[17]" IOSTANDARD = LVCMOS33;
+NET "EIM_A[18]" LOC = D14;
+NET "EIM_A[18]" IOSTANDARD = LVCMOS33;
+
+NET "EIM_LBA" LOC = B14;
+NET "EIM_LBA" IOSTANDARD = LVCMOS33;
+NET "EIM_OE" LOC = C10;
+NET "EIM_OE" IOSTANDARD = LVCMOS33;
+NET "EIM_RW" LOC = C14;
+NET "EIM_RW" IOSTANDARD = LVCMOS33;
+NET "EIM_WAIT" LOC = A7;
+NET "EIM_WAIT" IOSTANDARD = LVCMOS33;
