@@ -1,5 +1,5 @@
 The following files were generated for 'chipscope_ila' in directory
-/home/jblum/download/novena_try/coregen/
+/home/jblum/src/Novena-RF/driver/fpga/coregen/
 
 XCO file generator:
    Generate an XCO file for compatibility with legacy flows.
@@ -33,6 +33,7 @@ IP Symbol Generator:
 Generate ISE subproject:
    Create an ISE subproject for use when including this core in ISE designs
 
+   * _xmsgs/pn_parser.xmsgs
    * chipscope_ila.gise
    * chipscope_ila.xise
 

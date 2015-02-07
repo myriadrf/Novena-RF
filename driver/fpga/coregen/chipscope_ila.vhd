@@ -8,7 +8,7 @@
 -- \   \   \/     Version    : 14.4
 --  \   \         Application: XILINX CORE Generator
 --  /   /         Filename   : chipscope_ila.vhd
--- /___/   /\     Timestamp  : Thu Feb 05 23:51:13 PST 2015
+-- /___/   /\     Timestamp  : Fri Feb 06 13:33:34 PST 2015
 -- \   \  /  \
 --  \___\/\___\
 --
@@ -22,7 +22,7 @@ ENTITY chipscope_ila IS
   port (
     CONTROL: inout std_logic_vector(35 downto 0);
     CLK: in std_logic;
-    DATA: in std_logic_vector(31 downto 0);
+    DATA: in std_logic_vector(63 downto 0);
     TRIG0: in std_logic_vector(7 downto 0));
 END chipscope_ila;
 

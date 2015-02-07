@@ -38,8 +38,7 @@ module novena_eim(
     input wire [15:0] bus_data_rd,
     output wire [18:0] bus_addr,
     output wire bus_sel, //active cycle
-    output wire bus_wr, //write=1, read=0
-    input wire bus_rdy //backpressure
+    output wire bus_wr //write=1, read=0
 );
 
 	wire [15:0] dout;
@@ -108,22 +107,25 @@ module novena_eim(
     assign dout = bus_data_rd;
     assign bus_data_wr = din_in;
     assign bus_sel = !cs1_in && !adv_in;
-    assign bus_wr = rw_in;
-    assign bus_addr = {a_in, a_count};
+    assign bus_wr = !rw_in;
+    //show bus_addr stable one cycle early when adv_in for block ram reads
+    assign bus_addr = (adv_in == 1'b1)?{a_in, din_in}:{a_in, a_count};
+    reg pulse;
 
     reg [15:0] a_count;
     always @(posedge bclk_i) begin 
         EIM_WAIT <= 1; //never wait
+	pulse <= !pulse;
         if ( adv_in ) begin
             a_count <= din_in;
         end
         else if (bus_sel) begin
-            a_count <= a_count + 1;
+            a_count <= a_count + 2; //2 bytes
         end
     end
 
     wire [35:0] CONTROL_ILA;
-    reg [31:0] DATA_ILA;
+    reg [63:0] DATA_ILA;
     reg [7:0] TRIG_ILA;
     chipscope_icon my_icon(.CONTROL0(CONTROL_ILA));
     chipscope_ila my_ila(.CONTROL(CONTROL_ILA), .DATA(DATA_ILA), .TRIG0(TRIG_ILA), .CLK(bclk_i));
@@ -131,9 +133,21 @@ module novena_eim(
     always @(posedge bclk_i) begin 
         TRIG_ILA[0] <= bus_sel;
         TRIG_ILA[1] <= bus_wr;
+        TRIG_ILA[2] <= cs1_in;
+        TRIG_ILA[3] <= rw_in;
+        TRIG_ILA[4] <= adv_in;
+        TRIG_ILA[5] <= oe_in;
 
         DATA_ILA[15:0] <= bus_data_wr;
         DATA_ILA[31:16] <= bus_addr[15:0];
+        DATA_ILA[47:32] <= din_in;
+        DATA_ILA[57] <= oe_in;
+        DATA_ILA[58] <= pulse;
+        DATA_ILA[59] <= bus_sel;
+        DATA_ILA[60] <= bus_wr;
+        DATA_ILA[61] <= cs1_in;
+        DATA_ILA[62] <= rw_in;
+        DATA_ILA[63] <= adv_in;
     end
 
   //////////////

@@ -66,7 +66,11 @@ architecture rtl of novena_rf is
     signal bus_addr : std_logic_vector(18 downto 0);
     signal bus_sel : std_logic;
     signal bus_wr : std_logic;
-    signal bus_rdy : std_logic;
+
+    signal Wr_addr : natural range 0 to 15;
+    signal Rd_addr : natural range 0 to 15;
+    signal Wr_data : std_ulogic_vector(15 downto 0);
+    signal Rd_data : std_ulogic_vector(15 downto 0);
 
 begin
 
@@ -75,6 +79,15 @@ begin
     --------------------------------------------------------------------
     TXIQSEL <= RXIQSEL;
     TXD <= RXD;
+    lms_lmsrst <= '1';
+    APOPTOSIS <= '0';
+    lms_rxen <= '0';
+    lms_txen <= '0';
+
+    process (clk_in)
+    begin
+        FPGA_LED2 <= '0';
+    end process;
 
     --------------------------------------------------------------------
     -- bypass cpu spi to lms
@@ -112,27 +125,38 @@ begin
         bus_data_rd => bus_data_rd,
         bus_addr => bus_addr,
         bus_sel => bus_sel,
-        bus_wr => bus_wr,
-        bus_rdy => bus_rdy
+        bus_wr => bus_wr
     );
 
     process (bus_clk)
         variable time_wait0 : boolean := false;
     begin
         if (rising_edge(bus_clk)) then
-            bus_rdy <= bus_sel;
-            bus_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
+            --bus_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
         end if;
     end process;
 
-    process (clk_in)
-    begin
-        FPGA_LED2 <= '0';
-    end process;
+    --bus_data_rd <= bus_addr(15 downto 0);
 
-    lms_lmsrst <= '1';
-    APOPTOSIS <= '0';
-    lms_rxen <= '0';
-    lms_txen <= '0';
+    test_ram: entity work.dual_port_ram
+    generic map (
+        MEM_SIZE => 16--,
+        --SYNC_READ => false
+    )
+    port map (
+        Wr_clock => bus_clk,
+        We => bus_wr,
+        Wr_addr => Wr_addr,
+        Wr_data => Wr_data,
+        Rd_clock => bus_clk,
+        Re => '1',
+        Rd_addr => Rd_addr,
+        Rd_data => Rd_data
+    );
+
+    Rd_addr <= Wr_addr when (bus_sel = '0') else (Wr_addr + 1);
+    Wr_addr <= to_integer(unsigned(bus_addr(4 downto 1)));
+    bus_data_rd <= std_logic_vector(Rd_data);
+    Wr_data <= std_ulogic_vector(bus_data_wr);
 
 end architecture rtl;
