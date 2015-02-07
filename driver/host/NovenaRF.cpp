@@ -59,6 +59,24 @@ public:
             throw std::runtime_error("Failed to map regs " + std::string(strerror(errno)));
         }
 
+        //load the fpga image and verify version
+        this->fpgaCheckAndLoad(fpgaImage);
+
+        //self test on register space and bus
+        this->selfTestBus();
+
+        //clear hardware time
+        this->setHardwareTime(0, "");
+    }
+
+    ~NovenaRF(void)
+    {
+        munmap(_regs, NOVENA_RF_REGS_PAGE_SIZE);
+        close(_novena_fd);
+    }
+
+    void fpgaCheckAndLoad(const std::string &fpgaImage)
+    {
         //first access turns the bus clock on -- if it was not on...
         this->readRegister(REG_SENTINEL_ADDR);
 
@@ -70,13 +88,65 @@ public:
             novenaRF_loadFpga(fpgaImage);
         }
 
-        SoapySDR::logf(SOAPY_SDR_INFO, "Sentinel 0x%x", this->readRegister(REG_SENTINEL_ADDR));
+        //check the fpga image and its version number
+        const int fpgaSentinel = this->readRegister(REG_SENTINEL_ADDR);
+        if (fpgaSentinel != REG_SENTINEL_VALUE)
+        {
+            SoapySDR::logf(SOAPY_SDR_ERROR, "Expected FPGA sentinel 0x%x, but got 0x%x", REG_SENTINEL_VALUE, fpgaSentinel);
+            throw std::runtime_error("Fail FPGA sentinel check");
+        }
+
+        const int fpgaVersion = this->readRegister(REG_VERSION_ADDR);
+        if (fpgaVersion != REG_VERSION_VALUE)
+        {
+            SoapySDR::logf(SOAPY_SDR_ERROR, "Expected FPGA version 0x%x, but got 0x%x", REG_VERSION_VALUE, fpgaVersion);
+            throw std::runtime_error("FPGA version mismatch");
+        }
+
+        //perform reset on FPGA internals
+        this->writeRegister(REG_RESET_ADDR, 1);
+        this->writeRegister(REG_RESET_ADDR, 0);
     }
 
-    ~NovenaRF(void)
+    void selfTestBus(void)
     {
-        munmap(_regs, NOVENA_RF_REGS_PAGE_SIZE);
-        close(_novena_fd);
+        //register loopback test
+        SoapySDR::logf(SOAPY_SDR_TRACE, "Register loopback test");
+        for (size_t i = 0; i < 100; i++)
+        {
+            short value = std::rand() & 0xffff;
+            this->writeRegister(REG_LOOPBACK_ADDR, value);
+            short readback = this->readRegister(REG_LOOPBACK_ADDR);
+            if (value == readback) continue;
+            SoapySDR::logf(SOAPY_SDR_ERROR, "Register loopback fail[%d] wrote 0x%x, but readback 0x%x", i, value, readback);
+            throw std::runtime_error("Fail register loopback test");
+        }
+
+        //map the test space
+        SoapySDR::logf(SOAPY_SDR_TRACE, "Memory loopback test");
+        void *test_page = mmap(NULL, NOVENA_RF_TEST_PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _novena_fd, NOVENA_RF_MAP_OFFSET(NOVENA_RF_TEST_PAGE_NO));
+        if (test_page == MAP_FAILED)
+        {
+            throw std::runtime_error("Failed to map test page " + std::string(strerror(errno)));
+        }
+
+        //memcpy in and out
+        char buffOut[NOVENA_RF_TEST_PAGE_SIZE];
+        char buffIn[NOVENA_RF_TEST_PAGE_SIZE];
+        for (size_t i = 0; i < NOVENA_RF_TEST_PAGE_SIZE; i++)
+        {
+            buffOut[i] = std::rand() & 0xff;
+        }
+        std::memcpy(test_page, buffOut, NOVENA_RF_TEST_PAGE_SIZE);
+        std::memcpy(buffIn, test_page, NOVENA_RF_TEST_PAGE_SIZE);
+        for (size_t i = 0; i < NOVENA_RF_TEST_PAGE_SIZE; i++)
+        {
+            if (buffOut[i] == buffIn[i]) continue;
+            SoapySDR::logf(SOAPY_SDR_ERROR, "Memory loopback fail[%d] wrote 0x%x, but readback 0x%x", i, (int)buffOut[i], (int)buffIn[i]);
+            throw std::runtime_error("Fail memory loopback test");
+        }
+
+        munmap(test_page, NOVENA_RF_TEST_PAGE_SIZE);
     }
 
     /*******************************************************************
@@ -127,6 +197,53 @@ public:
     /*******************************************************************
      * Time API
      ******************************************************************/
+    long long ticksToTimeNs(const uint64_t ticks) const
+    {
+        return (long long)(ticks/(LMS_CLOCK_RATE/1e9));
+    }
+
+    uint64_t timeNsToTicks(const long long timeNs) const
+    {
+        return uint64_t(timeNs*(LMS_CLOCK_RATE/1e9));
+    }
+
+    bool hasHardwareTime(const std::string &what) const
+    {
+        if (not what.empty()) return SoapySDR::Device::hasHardwareTime(what);
+        return true;
+    }
+
+    long long getHardwareTime(const std::string &what) const
+    {
+        if (not what.empty()) return SoapySDR::Device::getHardwareTime(what);
+
+        //toggle time-in bit to latch the device time into register
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 1);
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 1);
+
+        uint64_t ticks =
+            (uint64_t(this->readRegister(REG_TIME_LO_ADDR)) << 0) |
+            (uint64_t(this->readRegister(REG_TIME_ME_ADDR)) << 16) |
+            (uint64_t(this->readRegister(REG_TIME_HI_ADDR)) << 32) |
+            (uint64_t(this->readRegister(REG_TIME_EX_ADDR)) << 48);
+
+        return this->ticksToTimeNs(ticks);
+    }
+
+    void setHardwareTime(const long long timeNs, const std::string &what)
+    {
+        if (not what.empty()) return SoapySDR::Device::setHardwareTime(timeNs, what);
+
+        uint64_t ticks = this->timeNsToTicks(timeNs);
+        this->writeRegister(REG_TIME_LO_ADDR, (ticks >> 0) & 0xffff);
+        this->writeRegister(REG_TIME_ME_ADDR, (ticks >> 16) & 0xffff);
+        this->writeRegister(REG_TIME_HI_ADDR, (ticks >> 32) & 0xffff);
+        this->writeRegister(REG_TIME_EX_ADDR, (ticks >> 48) & 0xffff);
+
+        //toggle time-out bit to latch the register into device time
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 0);
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 0);
+    }
 
     /*******************************************************************
      * Sensor API
