@@ -15,6 +15,7 @@ endif
 ########################################################################
 NOVENA_RF_MODULE_SOURCES = \
 	novena_rf_module.c \
+	novena_rf_eim.c \
 	novena_rf_fops.c
 
 novena_rf-objs = $(NOVENA_RF_MODULE_SOURCES:.c=.o)

@@ -12,7 +12,8 @@
 
 long novena_rf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-    
+    if (cmd == NOVENA_RF_EIM_INIT) return novena_rf_eim_init();
+    return 0;
 }
 
 int novena_rf_mmap(struct file *filp, struct vm_area_struct *vma)

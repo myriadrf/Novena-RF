@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "novena_rf.h"
 #include <linux/cdev.h> //character device
 
 #define MODULE_NAME "novena_rf"
@@ -34,3 +35,6 @@ int novena_rf_open(struct inode *inode, struct file *filp);
 
 //! The user calls close on the device node
 int novena_rf_release(struct inode *inode, struct file *filp);
+
+//! Initialize the EIM bus configuration
+long novena_rf_eim_init(void);
