@@ -9,21 +9,27 @@
 
 #include "novena_rf_module.h"
 #include <linux/io.h>
+#include <linux/kernel.h>
 
-long novena_rf_eim_init(void)
+long novena_rf_eim_init(novena_rf_module_t *module)
 {
-    //map eim and iomux registers
-    void __iomem *iomux_regs = ioremap_nocache(0x020E0000, 0x4000);
-    void __iomem *eim_regs = ioremap_nocache(0x021B8000, 0x4000);
-    if (iomux_regs == NULL) return -1;
-    if (eim_regs == NULL) return -1;
+    if (module->eim_configured != 0) return 0;
+    printk(KERN_INFO "NovenaRF initializing EIM configuration..\n");
 
-    #define offsetToMapped(offset) \
-        (char *)((((offset) & 0xFFFF0000) == 0x020E0000)?iomux_regs:eim_regs)
+    //dcd register space
+    #define DCD_BASE 0x020C4000
+    #define DCD_SIZE 0x100000
+    void __iomem *dcd_regs = ioremap_nocache(DCD_BASE, DCD_SIZE);
+    if (dcd_regs == NULL) return -EACCES;
+
     #define writeKernelMemory(offset, value, virtualized, size) \
-        iowrite32(value, ((offset) & 0xFFFF) + offsetToMapped(offset))
+        iowrite32(value, ((offset) - DCD_BASE) + ((char *)dcd_regs))
+
     #define readKernelMemory(offset, virtualized, size) \
-        ioread32(((offset) & 0xFFFF) + offsetToMapped(offset))
+        ioread32(((offset) - DCD_BASE) + ((char *)dcd_regs))
+
+    //clocks on (from fpga loader script)
+    writeKernelMemory(0x020c8160, 0x00000D2B, 0, 4);
 
     // set up pads to be mapped to EIM
     for (int i = 0; i < 16; i++)
@@ -84,7 +90,7 @@ long novena_rf_eim_init(void)
     int SWR = 1 << 1; //synch writes
     int CSEN = 1; //chip select is enabled
     int EIM_CSnGCR1 = PSZ|WP|GBC|AUS|CSREC|SP|DSZ|BCS|BCD|WC|BL|CREP|CRE|RFL|WFL|MUM|SRD|SWR|CSEN;
-    //printf("EIM_CSnGCR1 0x%08X\n", EIM_CSnGCR1);
+    printk(KERN_INFO "EIM_CSnGCR1 0x%08X\n", EIM_CSnGCR1);
 
     writeKernelMemory(0x21b8000, EIM_CSnGCR1, 0, 4);
     writeKernelMemory(0x21b8000+24, EIM_CSnGCR1, 0, 4);
@@ -97,7 +103,7 @@ long novena_rf_eim_init(void)
     int DAPS = 0 << 4;
     int ADH = 0; // address hold time after ADC negation(0 cycles)
     int EIM_CSnGCR2 = MUX16_BYP_GRANT|DAP|DAE|DAPS|ADH;
-    //printf("EIM_CSnGCR2 0x%08X\n", EIM_CSnGCR2);
+    printk(KERN_INFO "EIM_CSnGCR2 0x%08X\n", EIM_CSnGCR2);
     writeKernelMemory(0x21b8004, EIM_CSnGCR2, 0, 4);
     writeKernelMemory(0x21b8004+24, EIM_CSnGCR2, 0, 4);
     writeKernelMemory(0x21b8004+48, EIM_CSnGCR2, 0, 4);
@@ -116,7 +122,7 @@ long novena_rf_eim_init(void)
     writeKernelMemory(0x21b8008, EIM_CSnRCR1, 0, 4);
     writeKernelMemory(0x21b8008+24, EIM_CSnRCR1, 0, 4);
     writeKernelMemory(0x21b8008+48, EIM_CSnRCR1, 0, 4);
-    //printf("EIM_CSnRCR1 0x%08X\n", EIM_CSnRCR1);
+    printk(KERN_INFO "EIM_CSnRCR1 0x%08X\n", EIM_CSnRCR1);
 
     // EIM_CS0RCR2
     // APR PAT RL RBEA RBEN
@@ -130,7 +136,7 @@ long novena_rf_eim_init(void)
     writeKernelMemory(0x21b800c, EIM_CSnRCR2, 0, 4);
     writeKernelMemory(0x21b800c+24, EIM_CSnRCR2, 0, 4);
     writeKernelMemory(0x21b800c+48, EIM_CSnRCR2, 0, 4);
-    //printf("EIM_CSnRCR2 0x%08X\n", EIM_CSnRCR2);
+    printk(KERN_INFO "EIM_CSnRCR2 0x%08X\n", EIM_CSnRCR2);
 
     // EIM_CS0WCR1
     // WAL WBED WWSC WADVA WADVN WBEA WBEN WEA WEN WCSA WCSN
@@ -147,7 +153,7 @@ long novena_rf_eim_init(void)
     int WCSA = 0 << 3; //cycles to CS assertion
     int WCSN = 0 ; //cycles to CS negation
     int EIM_CSnWCR1 = WAL|WBED|WWSC|WADVA|WADVN|WBEA|WBEN|WEA|WEN|WCSA|WCSN;
-    //printf("EIM_CSnWCR1 0x%08X\n", EIM_CSnWCR1);
+    printk(KERN_INFO "EIM_CSnWCR1 0x%08X\n", EIM_CSnWCR1);
     writeKernelMemory(0x21b8010, EIM_CSnWCR1, 0, 4);
     writeKernelMemory(0x21b8010+24, EIM_CSnWCR1, 0, 4); //cs1
     writeKernelMemory(0x21b8010+48, EIM_CSnWCR1, 0, 4); //cs2
@@ -164,7 +170,7 @@ long novena_rf_eim_init(void)
     int BCM = 1; //free-run BCLK
     int EIM_WCR = WDOG_LIMIT|WDOG_EN|INTPOL|INTEN|GBCD|BCM;
     writeKernelMemory(0x21b8090, EIM_WCR, 0, 4);
-    //printf("EIM_WCR 0x%08X\n", EIM_WCR);
+    printk(KERN_INFO "EIM_WCR 0x%08X\n", EIM_WCR);
 
     // EIM_WIAR
     // ACLK_EN = 1
@@ -176,15 +182,18 @@ long novena_rf_eim_init(void)
     int IPS_REQ = 0;
     int EIM_WIAR = ACLK_EN|ERRST|INT|IPS_ACK|IPS_REQ;
     writeKernelMemory(0x21b8094, EIM_WIAR, 0, 4);
-    //printf("EIM_WIAR 0x%08X\n", EIM_WIAR);
+    printk(KERN_INFO "EIM_WIAR 0x%08X\n", EIM_WIAR);
 
-    //printf( "resetting CS0 space to 64M and enabling 32M CS1 and 32M CS2 space.\n" );
+    printk(KERN_INFO  "resetting CS0 space to 64M and enabling 32M CS1 and 32M CS2 space.\n" );
     writeKernelMemory( 0x20e0004, (readKernelMemory(0x20e0004, 0, 4) & 0xFFFFF000) | 0x04B, 0, 4);
-    //printf("EIM configured\n");
+    printk(KERN_INFO "EIM configured\n");
+
+    //the address of the cs1 slave we will be mapping in this module
+    module->eim_memory = 0xC000000;
 
     //cleanup
-    iounmap(iomux_regs);
-    iounmap(eim_regs);
+    iounmap(dcd_regs);
 
+    module->eim_configured = 1;
     return 0;
 }

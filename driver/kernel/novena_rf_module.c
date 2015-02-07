@@ -30,6 +30,9 @@ static novena_rf_module_t module_data;
  **********************************************************************/
 static int novena_rf_module_init(void)
 {
+    module_data.eim_configured = 0;
+    module_data.eim_memory = 0;
+
     //register the character device
     if (alloc_chrdev_region(&module_data.dev_num, 0, 1, MODULE_NAME) < 0)
     {

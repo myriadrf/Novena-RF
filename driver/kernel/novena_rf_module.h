@@ -18,6 +18,10 @@
  */
 typedef struct
 {
+    //state variables
+    int eim_configured;
+    size_t eim_memory;
+
     //devfs registration
     dev_t dev_num;
     struct cdev c_dev;
@@ -37,4 +41,4 @@ int novena_rf_open(struct inode *inode, struct file *filp);
 int novena_rf_release(struct inode *inode, struct file *filp);
 
 //! Initialize the EIM bus configuration
-long novena_rf_eim_init(void);
+long novena_rf_eim_init(novena_rf_module_t *module);

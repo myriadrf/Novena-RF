@@ -70,9 +70,11 @@ architecture rtl of novena_rf is
 
     --register constants
     constant REG_SENTINEL_VALUE : natural := 16#5246#;
+    constant REG_VERSION_VALUE : natural := 16#0001#;
     constant REG_SENTINEL_ADDR : natural := 0;
-    constant REG_LOOPBACK_ADDR : natural := 2;
+    constant REG_VERSION_ADDR : natural := 2;
     constant REG_RESET_ADDR : natural := 4;
+    constant REG_LOOPBACK_ADDR : natural := 6;
     constant REG_LMS_GPIO_ADDR : natural := 8;
     constant REG_TIME_LO_ADDR : natural := 20;
     constant REG_TIME_ME_ADDR : natural := 22;
@@ -131,10 +133,10 @@ begin
         --handle register writes
         if (rising_edge(bus_clk)) then
             if (reg_sel = '1' and reg_wr = '1') then
-                if (addr_num = REG_LOOPBACK_ADDR) then
-                    loopback_test <= reg_data_wr;
-                elsif (addr_num = REG_RESET_ADDR) then
+                if (addr_num = REG_RESET_ADDR) then
                     bus_rst <= reg_data_wr(0);
+                elsif (addr_num = REG_LOOPBACK_ADDR) then
+                    loopback_test <= reg_data_wr;
                 elsif (addr_num = REG_LMS_GPIO_ADDR) then
                     lms_lmsrst <= reg_data_wr(0);
                     lms_rxen <= reg_data_wr(1);
@@ -158,6 +160,8 @@ begin
         if (reg_sel = '1' and reg_wr = '0') then
             if (addr_num = REG_SENTINEL_ADDR) then --sentinel
                 reg_data_rd <= std_logic_vector(to_unsigned(REG_SENTINEL_VALUE, 16));
+            elsif (addr_num = REG_VERSION_ADDR) then --sentinel
+                reg_data_rd <= std_logic_vector(to_unsigned(REG_VERSION_VALUE, 16));
             elsif (addr_num = REG_LOOPBACK_ADDR) then
                 reg_data_rd <= loopback_test;
             elsif (addr_num = REG_TIME_LO_ADDR) then

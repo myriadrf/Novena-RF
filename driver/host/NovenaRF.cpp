@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include "NovenaRF.hpp"
+#include "novena_rf.h" //shared kernel module header
 
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Registry.hpp>
@@ -25,6 +26,7 @@
 #include <fcntl.h>
 #include <sys/mman.h> //mmap
 #include <unistd.h> //close
+#include <stdint.h>
 
 /***********************************************************************
  * Device interface
@@ -32,8 +34,9 @@
 class NovenaRF : public SoapySDR::Device
 {
 public:
-    NovenaRF(void):
-        _novena_fd(-1)
+    NovenaRF(const std::string &fpgaImage):
+        _novena_fd(-1),
+        _regs(NULL)
     {
         //open the file descriptor for the novena rf module
         _novena_fd = open(NOVENA_RF_DEVFS, O_RDWR | O_SYNC);
@@ -41,10 +44,38 @@ public:
         {
             throw std::runtime_error("Failed to open "NOVENA_RF_DEVFS": " + std::string(strerror(errno)));
         }
+
+        //initialize the EIM configuration
+        int ret = ioctl(_novena_fd, NOVENA_RF_EIM_INIT);
+        if (ret != 0)
+        {
+            throw std::runtime_error("Failed to initialize EIM " + std::string(strerror(errno)));
+        }
+
+        //map the register space
+        _regs = mmap(NULL, NOVENA_RF_REGS_PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _novena_fd, NOVENA_RF_MAP_OFFSET(NOVENA_RF_REGS_PAGE_NO));
+        if (_regs == MAP_FAILED)
+        {
+            throw std::runtime_error("Failed to map regs " + std::string(strerror(errno)));
+        }
+
+        //first access turns the bus clock on -- if it was not on...
+        this->readRegister(REG_SENTINEL_ADDR);
+
+        //check if the fpga image was loaded -- if not load it
+        if (
+            this->readRegister(REG_SENTINEL_ADDR) != REG_SENTINEL_VALUE or
+            this->readRegister(REG_VERSION_ADDR) != REG_VERSION_VALUE)
+        {
+            novenaRF_loadFpga(fpgaImage);
+        }
+
+        SoapySDR::logf(SOAPY_SDR_INFO, "Sentinel 0x%x", this->readRegister(REG_SENTINEL_ADDR));
     }
 
     ~NovenaRF(void)
     {
+        munmap(_regs, NOVENA_RF_REGS_PAGE_SIZE);
         close(_novena_fd);
     }
 
@@ -104,6 +135,17 @@ public:
     /*******************************************************************
      * Register API
      ******************************************************************/
+    void writeRegister(const unsigned addr, const unsigned value)
+    {
+        volatile uint16_t *p = (volatile uint16_t *)(((char *)_regs) + addr);
+        *p = value;
+    }
+
+    unsigned readRegister(const unsigned addr) const
+    {
+        volatile uint16_t *p = (volatile uint16_t *)(((char *)_regs) + addr);
+        return *p;
+    }
 
     /*******************************************************************
      * Settings API
@@ -127,6 +169,7 @@ public:
 
 private:
     int _novena_fd; //novena_rf kernel module
+    void *_regs;
 };
 
 /***********************************************************************
@@ -145,9 +188,9 @@ std::vector<SoapySDR::Kwargs> findNovenaRF(const SoapySDR::Kwargs &args)
  **********************************************************************/
 SoapySDR::Device *makeNovenaRF(const SoapySDR::Kwargs &args)
 {
-    if (args.count("fpga") != 0) novenaRF_loadFpga(args.at("fpga"));
-    else novenaRF_loadFpga(FPGA_IMAGE_PATH);
-    return new NovenaRF();
+    std::string fpgaImage = FPGA_IMAGE_PATH;
+    if (args.count("fpga") != 0) fpgaImage = args.at("fpga");
+    return new NovenaRF(fpgaImage);
 }
 
 /***********************************************************************

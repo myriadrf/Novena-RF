@@ -11,11 +11,14 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-//! The mmap offset used to specify the register space
-#define NOVENA_RF_REGS_OFF 0
+//! Arbitrary shift used on offset to pass it into the mmap
+#define NOVENA_RF_MAP_SHIFT 16
 
-//! The size of the register space in bytes
-#define NOVENA_RF_REGS_SIZE 256
+//! The mmap offset used to specify which address space
+#define NOVENA_RF_MAP_OFFSET(page) ((page) << NOVENA_RF_MAP_SHIFT)
+
+//! IOCTL constant used to form IOCTL numbers
+#define NOVENA_RF_MAGIC 'n'
 
 //! Initialize the EIM configuration for communication
-#define NOVENA_RF_EIM_INIT _IO('n', 3)
+#define NOVENA_RF_EIM_INIT _IO(NOVENA_RF_MAGIC, 1)

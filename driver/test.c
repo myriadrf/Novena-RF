@@ -418,10 +418,16 @@ int main(void)
     }
     //sleep(3);
     //printf("fpga send\n");
-    fpga_send(0xC000000 | (0 << 16), (void *)buff, 4);
+    fpga_send(0xC000000 | 0 | (0 << 16), (void*)&buff[0], 4);
+    fpga_send(0xC000000 | 0 | (0 << 16), (void*)&buff[0], 4);
+
+    for (size_t i = 0; i < 2048; i++)
+    {
+        buff[i] = 0;
+    }
 
     //printf("fpga read\n");
-    fpga_read(0xC000000 | (0 << 16), (unsigned short*)&buff[0], 4);
+    fpga_read(0xC000000 | 0 | (0 << 16), (void*)&buff[0], 4);
 
     printf("fpga read prints\n");
     for (size_t i = 0; i < 10; i++)

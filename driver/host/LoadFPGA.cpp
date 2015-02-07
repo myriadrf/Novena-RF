@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/mman.h> //mmap
 #include <unistd.h> //close
 
 #include "xilinx_user_gpio.h"
@@ -49,8 +48,6 @@ devmem2 0x020c8160 w 0x00000D2B
 
 void novenaRF_loadFpga(const std::string &fpgaImage)
 {
-    //check if the FPGA is loaded - TODO
-
     //reset with GPIO before loading
     gpio_export(FPGA_RESET_GPIO);
     gpio_set_dir(FPGA_RESET_GPIO, 1);
@@ -83,12 +80,4 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
 
     fclose(fpga_fp);
     close(spi_fd);
-
-    //turning clocks on ... TODO move to kernel driver...
-    #define MAP_SIZE 4096UL
-    #define MAP_MASK (MAP_SIZE - 1)
-    int fd = open("/dev/mem", O_RDWR | O_SYNC);
-    void *map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x020c8160 & ~MAP_MASK);
-    char *virt_addr = ((char *)(map_base) + (0x020c8160 & MAP_MASK));
-    *((unsigned int *) virt_addr) = 0x00000D2B;
 }
