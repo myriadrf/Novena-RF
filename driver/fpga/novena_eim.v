@@ -115,7 +115,7 @@ module novena_eim(
     reg pulse;
 
     always @(posedge bclk_i) begin 
-    	dout_r <= bus_data_rd; //only cross into bclk out clock domain from register
+    	dout_r <= bus_data_rd; //only cross clock domain from register
         EIM_WAIT <= 1; //never wait
 	pulse <= !pulse;
         if ( adv_in ) begin

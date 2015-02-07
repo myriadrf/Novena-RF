@@ -1,5 +1,8 @@
 ------------------------------------------------------------------------
 -- FPGA design for Novena-RF SDR
+-- Top level design for Novena-RF:
+-- Contains register space, register capture,
+-- memory to stream, framer, and deframer.
 --
 -- Copyright (c) 2015-2015 Lime Microsystems
 -- Copyright (c) 2015-2015 Andrew "bunnie" Huang
@@ -12,6 +15,11 @@ library work;
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity novena_rf is
     port(
@@ -60,8 +68,28 @@ end entity novena_rf;
 
 architecture rtl of novena_rf is
 
+    --register constants
+    constant REG_SENTINEL_VALUE : natural := 16#5246#;
+    constant REG_SENTINEL_ADDR : natural := 0;
+    constant REG_LOOPBACK_ADDR : natural := 2;
+    constant REG_RESET_ADDR : natural := 4;
+    constant REG_LMS_GPIO_ADDR : natural := 8;
+    constant REG_TIME_LO_ADDR : natural := 20;
+    constant REG_TIME_ME_ADDR : natural := 22;
+    constant REG_TIME_HI_ADDR : natural := 24;
+    constant REG_TIME_EX_ADDR : natural := 26;
+    constant REG_TIME_CTRL_ADDR : natural := 28;
+
+    --time registers for framer/deframer
+    signal if_time : unsigned(63 downto 0);
+    signal if_time_rd : std_logic_vector(63 downto 0) := (others => '0');
+    signal if_time_wr : std_logic_vector(63 downto 0) := (others => '0');
+    signal if_time_reg_out : boolean := false;
+    signal if_time_reg_in : boolean := false;
+
     --bus from EIM
     signal bus_clk : std_logic;
+    signal bus_rst : std_logic;
     signal bus_sel : std_logic;
     signal bus_wr : std_logic;
     signal bus_addr : std_logic_vector(18 downto 0);
@@ -81,60 +109,110 @@ architecture rtl of novena_rf is
     signal test0_addr : std_logic_vector(15 downto 0);
     signal test0_data_wr : std_logic_vector(15 downto 0);
     signal test0_data_rd : std_logic_vector(15 downto 0);
-
     signal Wr_addr : natural range 0 to 15;
     signal Rd_addr : natural range 0 to 15;
     signal Wr_data : std_ulogic_vector(15 downto 0);
     signal Rd_data : std_ulogic_vector(15 downto 0);
 
+    signal lms_clk : std_logic;
+    signal lms_rst : std_logic;
+
+    signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
 begin
 
     --------------------------------------------------------------------
     -- register interface
     --------------------------------------------------------------------
-    process (bus_clk, reg_addr, reg_sel, reg_wr)
+    process (lms_clk, bus_clk, reg_addr, reg_sel, reg_wr)
         variable addr_num : natural;
-        variable loopback_test : std_logic_vector(15 downto 0) := (others => '0');
     begin
         addr_num := to_integer(unsigned(reg_addr(7 downto 0)));
-        --if (rising_edge(bus_clk)) then
 
-            --handle register writes
+        --handle register writes
+        if (rising_edge(bus_clk)) then
             if (reg_sel = '1' and reg_wr = '1') then
-                if (addr_num = 2) then --loopback
-                    loopback_test := reg_data_wr;
+                if (addr_num = REG_LOOPBACK_ADDR) then
+                    loopback_test <= reg_data_wr;
+                elsif (addr_num = REG_RESET_ADDR) then
+                    bus_rst <= reg_data_wr(0);
+                elsif (addr_num = REG_LMS_GPIO_ADDR) then
+                    lms_lmsrst <= reg_data_wr(0);
+                    lms_rxen <= reg_data_wr(1);
+                    lms_txen <= reg_data_wr(2);
+                elsif (addr_num = REG_TIME_LO_ADDR) then
+                    if_time_wr(15 downto 0) <= reg_data_wr;
+                elsif (addr_num = REG_TIME_ME_ADDR) then
+                    if_time_wr(31 downto 16) <= reg_data_wr;
+                elsif (addr_num = REG_TIME_HI_ADDR) then
+                    if_time_wr(47 downto 32) <= reg_data_wr;
+                elsif (addr_num = REG_TIME_EX_ADDR) then
+                    if_time_wr(63 downto 48) <= reg_data_wr;
+                elsif (addr_num = REG_TIME_CTRL_ADDR) then
+                    if_time_reg_out <= reg_data_wr(0) = '1';
+                    if_time_reg_in <= reg_data_wr(1) = '1';
                 end if;
             end if;
+        end if;
 
-            --handle register reads
-            if (reg_sel = '1' and reg_wr = '0') then
-                if (addr_num = 0) then --sentinel
-                    reg_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
-                elsif (addr_num = 2) then --loopback
-                    reg_data_rd <= loopback_test;
-                elsif (addr_num = 4) then
-                    reg_data_rd <= reg_addr;
-                elsif (addr_num = 6) then
-                    reg_data_rd <= reg_addr;
-                elsif (addr_num = 8) then
-                    reg_data_rd <= reg_addr;
-                else
-                    reg_data_rd <= (others => '1');
+        --handle register reads
+        if (reg_sel = '1' and reg_wr = '0') then
+            if (addr_num = REG_SENTINEL_ADDR) then --sentinel
+                reg_data_rd <= std_logic_vector(to_unsigned(REG_SENTINEL_VALUE, 16));
+            elsif (addr_num = REG_LOOPBACK_ADDR) then
+                reg_data_rd <= loopback_test;
+            elsif (addr_num = REG_TIME_LO_ADDR) then
+                reg_data_rd <= if_time_rd(15 downto 0);
+            elsif (addr_num = REG_TIME_ME_ADDR) then
+                reg_data_rd <= if_time_rd(31 downto 16);
+            elsif (addr_num = REG_TIME_HI_ADDR) then
+                reg_data_rd <= if_time_rd(47 downto 32);
+            elsif (addr_num = REG_TIME_EX_ADDR) then
+                reg_data_rd <= if_time_rd(63 downto 48);
+            else
+                reg_data_rd <= (others => '1');
+            end if;
+        end if;
+
+    end process;
+
+    --------------------------------------------------------------------
+    -- timer state machine
+    --------------------------------------------------------------------
+    process (lms_clk) begin
+        if (rising_edge(lms_clk)) then
+            if (lms_rst = '1') then
+                if_time <= to_unsigned(0, 64);
+            else
+                if_time <= if_time + to_unsigned(1, 64);
+                if (if_time_reg_in) then
+                    if_time_rd <= std_logic_vector(if_time);
+                end if;
+                if (if_time_reg_out) then
+                    if_time <= unsigned(if_time_wr);
                 end if;
             end if;
-
-        --end if;
+        end if;
     end process;
 
     --------------------------------------------------------------------
     -- framers here ... loopback for now
     --------------------------------------------------------------------
+    clk_in_BUFGP: component BUFGP
+    port map (
+        I => clk_in,
+        O => lms_clk
+    );
+
+    lms_sync_rst: entity work.sync_reset
+    port map (
+        glbl_reset => bus_rst,
+        clk => lms_clk,
+        reset => lms_rst
+    );
+
     TXIQSEL <= RXIQSEL;
     TXD <= RXD;
-    lms_lmsrst <= '1';
     APOPTOSIS <= '0';
-    lms_rxen <= '0';
-    lms_txen <= '0';
 
     process (clk_in)
     begin
@@ -185,7 +263,6 @@ begin
     --------------------------------------------------------------------
     novena_rf_bus_mux : entity work.novena_rf_bus_mux
     port map (
-        bus_clk => bus_clk,
         bus_sel => bus_sel,
         bus_wr => bus_wr,
         bus_addr => bus_addr,
@@ -217,16 +294,9 @@ begin
         bus3_data_rd => (others => '0')
     );
 
-    --process (bus_clk)
-        --variable time_wait0 : boolean := false;
-    --begin
-        --if (rising_edge(bus_clk)) then
-            ----bus_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
-        --end if;
-    --end process;
-
-    ----bus_data_rd <= bus_addr(15 downto 0);
-
+    --------------------------------------------------------------------
+    -- a loopback test with BRAM
+    --------------------------------------------------------------------
     test_ram: entity work.dual_port_ram
     generic map (
         MEM_SIZE => 16--,

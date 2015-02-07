@@ -51,7 +51,7 @@ INST "eim_bus/oddr2_eimF" IOB =FORCE;
 NET "clk_in" TNM_NET = "clk_in";
 TIMESPEC TS_clk_in = PERIOD "clk_in" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
 OFFSET = OUT 20 ns AFTER "clk_in";
-#INST "clk_in_BUFGP" LOC = R10; #H3;
+INST "clk_in_BUFGP" LOC = R10; #H3;
 NET "clk_in" LOC = R10; #H3;
 NET "clk_in" IOSTANDARD = LVCMOS33;
 

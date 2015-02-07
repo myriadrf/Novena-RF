@@ -23,7 +23,6 @@ use ieee.numeric_std.all;
 entity novena_rf_bus_mux is
     port (
         --input bus from EIM capture
-        bus_clk : in std_logic;
         bus_sel : in std_logic;
         bus_wr : in std_logic;
         bus_addr : in std_logic_vector(18 downto 0);
