@@ -60,12 +60,27 @@ end entity novena_rf;
 
 architecture rtl of novena_rf is
 
+    --bus from EIM
     signal bus_clk : std_logic;
-    signal bus_data_wr : std_logic_vector(15 downto 0);
-    signal bus_data_rd : std_logic_vector(15 downto 0);
-    signal bus_addr : std_logic_vector(18 downto 0);
     signal bus_sel : std_logic;
     signal bus_wr : std_logic;
+    signal bus_addr : std_logic_vector(18 downto 0);
+    signal bus_data_wr : std_logic_vector(15 downto 0);
+    signal bus_data_rd : std_logic_vector(15 downto 0);
+
+    --register bus
+    signal reg_sel : std_logic;
+    signal reg_wr : std_logic;
+    signal reg_addr : std_logic_vector(15 downto 0);
+    signal reg_data_wr : std_logic_vector(15 downto 0);
+    signal reg_data_rd : std_logic_vector(15 downto 0);
+
+    --ram test bus
+    signal test0_sel : std_logic;
+    signal test0_wr : std_logic;
+    signal test0_addr : std_logic_vector(15 downto 0);
+    signal test0_data_wr : std_logic_vector(15 downto 0);
+    signal test0_data_rd : std_logic_vector(15 downto 0);
 
     signal Wr_addr : natural range 0 to 15;
     signal Rd_addr : natural range 0 to 15;
@@ -73,6 +88,43 @@ architecture rtl of novena_rf is
     signal Rd_data : std_ulogic_vector(15 downto 0);
 
 begin
+
+    --------------------------------------------------------------------
+    -- register interface
+    --------------------------------------------------------------------
+    process (bus_clk, reg_addr, reg_sel, reg_wr)
+        variable addr_num : natural;
+        variable loopback_test : std_logic_vector(15 downto 0) := (others => '0');
+    begin
+        addr_num := to_integer(unsigned(reg_addr(7 downto 0)));
+        --if (rising_edge(bus_clk)) then
+
+            --handle register writes
+            if (reg_sel = '1' and reg_wr = '1') then
+                if (addr_num = 2) then --loopback
+                    loopback_test := reg_data_wr;
+                end if;
+            end if;
+
+            --handle register reads
+            if (reg_sel = '1' and reg_wr = '0') then
+                if (addr_num = 0) then --sentinel
+                    reg_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
+                elsif (addr_num = 2) then --loopback
+                    reg_data_rd <= loopback_test;
+                elsif (addr_num = 4) then
+                    reg_data_rd <= reg_addr;
+                elsif (addr_num = 6) then
+                    reg_data_rd <= reg_addr;
+                elsif (addr_num = 8) then
+                    reg_data_rd <= reg_addr;
+                else
+                    reg_data_rd <= (others => '1');
+                end if;
+            end if;
+
+        --end if;
+    end process;
 
     --------------------------------------------------------------------
     -- framers here ... loopback for now
@@ -128,24 +180,61 @@ begin
         bus_wr => bus_wr
     );
 
-    process (bus_clk)
-        variable time_wait0 : boolean := false;
-    begin
-        if (rising_edge(bus_clk)) then
-            --bus_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
-        end if;
-    end process;
+    --------------------------------------------------------------------
+    -- bus mux
+    --------------------------------------------------------------------
+    novena_rf_bus_mux : entity work.novena_rf_bus_mux
+    port map (
+        bus_clk => bus_clk,
+        bus_sel => bus_sel,
+        bus_wr => bus_wr,
+        bus_addr => bus_addr,
+        bus_data_wr => bus_data_wr,
+        bus_data_rd => bus_data_rd,
 
-    --bus_data_rd <= bus_addr(15 downto 0);
+        bus0_sel => reg_sel,
+        bus0_wr => reg_wr,
+        bus0_addr => reg_addr,
+        bus0_data_wr => reg_data_wr,
+        bus0_data_rd => reg_data_rd,
+
+        bus1_sel => test0_sel,
+        bus1_wr => test0_wr,
+        bus1_addr => test0_addr,
+        bus1_data_wr => test0_data_wr,
+        bus1_data_rd => test0_data_rd,
+
+        bus2_sel => open,
+        bus2_wr => open,
+        bus2_addr => open,
+        bus2_data_wr => open,
+        bus2_data_rd => (others => '0'),
+
+        bus3_sel => open,
+        bus3_wr => open,
+        bus3_addr => open,
+        bus3_data_wr => open,
+        bus3_data_rd => (others => '0')
+    );
+
+    --process (bus_clk)
+        --variable time_wait0 : boolean := false;
+    --begin
+        --if (rising_edge(bus_clk)) then
+            ----bus_data_rd <= std_logic_vector(to_unsigned(16#ABCD#, 16));
+        --end if;
+    --end process;
+
+    ----bus_data_rd <= bus_addr(15 downto 0);
 
     test_ram: entity work.dual_port_ram
     generic map (
         MEM_SIZE => 16--,
-        --SYNC_READ => false
+        ----SYNC_READ => false
     )
     port map (
         Wr_clock => bus_clk,
-        We => bus_wr,
+        We => test0_wr,
         Wr_addr => Wr_addr,
         Wr_data => Wr_data,
         Rd_clock => bus_clk,
@@ -154,9 +243,9 @@ begin
         Rd_data => Rd_data
     );
 
-    Rd_addr <= Wr_addr when (bus_sel = '0') else (Wr_addr + 1);
-    Wr_addr <= to_integer(unsigned(bus_addr(4 downto 1)));
-    bus_data_rd <= std_logic_vector(Rd_data);
-    Wr_data <= std_ulogic_vector(bus_data_wr);
+    Rd_addr <= Wr_addr when (test0_sel = '0') else (Wr_addr + 1);
+    Wr_addr <= to_integer(unsigned(test0_addr(4 downto 1)));
+    test0_data_rd <= std_logic_vector(Rd_data);
+    Wr_data <= std_ulogic_vector(test0_data_wr);
 
 end architecture rtl;

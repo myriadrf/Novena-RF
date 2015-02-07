@@ -102,9 +102,11 @@ module novena_eim(
   //////////////
   // END Read from FIFO and write to EIM related
   //////////////
+    reg [15:0] a_count;
+    reg [15:0] dout_r;
 
     assign bus_clk = bclk_i;
-    assign dout = bus_data_rd;
+    assign dout = dout_r;
     assign bus_data_wr = din_in;
     assign bus_sel = !cs1_in && !adv_in;
     assign bus_wr = !rw_in;
@@ -112,8 +114,8 @@ module novena_eim(
     assign bus_addr = (adv_in == 1'b1)?{a_in, din_in}:{a_in, a_count};
     reg pulse;
 
-    reg [15:0] a_count;
     always @(posedge bclk_i) begin 
+    	dout_r <= bus_data_rd; //only cross into bclk out clock domain from register
         EIM_WAIT <= 1; //never wait
 	pulse <= !pulse;
         if ( adv_in ) begin
@@ -141,6 +143,7 @@ module novena_eim(
         DATA_ILA[15:0] <= bus_data_wr;
         DATA_ILA[31:16] <= bus_addr[15:0];
         DATA_ILA[47:32] <= din_in;
+        DATA_ILA[56:54] <= a_in;
         DATA_ILA[57] <= oe_in;
         DATA_ILA[58] <= pulse;
         DATA_ILA[59] <= bus_sel;
