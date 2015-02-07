@@ -141,7 +141,7 @@ int prep_eim_burst()
 
     // EIM_CS0RCR1
     // RWSC RADVA RAL RADVN OEA OEN RCSA RCSN
-    int RWSC = 4 << 24;
+    int RWSC = 5 << 24;
     int RADVA = 0 << 20;
     int RAL = 0 << 19;
     int RADVN = 0 << 16;
@@ -418,10 +418,10 @@ int main(void)
     }
     //sleep(3);
     //printf("fpga send\n");
-    fpga_send(0xC000000, (void *)buff, 10*2);
+    fpga_send(0xC000000 | (0 << 16), (void *)buff, 4);
 
     //printf("fpga read\n");
-    fpga_read(0xC000000, (unsigned short*)&buff[0], 10*2);
+    fpga_read(0xC000000 | (0 << 16), (unsigned short*)&buff[0], 4);
 
     printf("fpga read prints\n");
     for (size_t i = 0; i < 10; i++)
