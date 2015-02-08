@@ -23,21 +23,6 @@
 #define LMS_CLOCK_RATE 30.72e6
 
 /***********************************************************************
- * Memory mapped #defines
- **********************************************************************/
-#define NOVENA_RF_REGS_PAGE_NO 0
-#define NOVENA_RF_REGS_PAGE_SIZE 256
-
-#define NOVENA_RF_TEST0_PAGE_NO 1
-#define NOVENA_RF_TEST0_PAGE_SIZE 16*2
-
-#define NOVENA_RF_FRAMER0_PAGE_NO 2
-#define NOVENA_RF_FRAMER0_PAGE_SIZE 128*4
-
-#define NOVENA_RF_DEFRAMER0_PAGE_NO 3
-#define NOVENA_RF_DEFRAMER0_PAGE_SIZE 128*4
-
-/***********************************************************************
  * FPGA register #defines -- from the VHDL
  **********************************************************************/
 #define REG_SENTINEL_VALUE 0x5246
@@ -66,6 +51,27 @@
 #define REG_MM2S_DEFRAMER0_STAT_ADDR 46
 //--read-only register to query the FIFO readiness
 #define REG_DMA_FIFO_RDY_CTRL_ADDR 48
+
+#define TEST0_BRAM_NUM_ENTRIES 16
+#define FRAMER0_FIFO_NUM_ENTRIES 1024
+#define FRAMER0_S2MM_NUM_ENTRIES 4096
+#define DEFRAMER0_FIFO_NUM_ENTRIES 1024
+#define DEFRAMER0_MM2S_NUM_ENTRIES 4096
+
+/***********************************************************************
+ * Memory mapped #defines
+ **********************************************************************/
+#define NOVENA_RF_REGS_PAGE_NO 0
+#define NOVENA_RF_REGS_PAGE_SIZE 256
+
+#define NOVENA_RF_TEST0_PAGE_NO 1
+#define NOVENA_RF_TEST0_PAGE_SIZE TEST0_BRAM_NUM_ENTRIES*sizeof(uint16_t)
+
+#define NOVENA_RF_FRAMER0_PAGE_NO 2
+#define NOVENA_RF_FRAMER0_PAGE_SIZE FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t)
+
+#define NOVENA_RF_DEFRAMER0_PAGE_NO 3
+#define NOVENA_RF_DEFRAMER0_PAGE_SIZE DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t)
 
 /***********************************************************************
  * Utility functions
