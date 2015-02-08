@@ -48,9 +48,9 @@ INST "eim_bus/oddr2_eimF" IOB =FORCE;
 #################################
 # Clock From MyriadRF
 #################################
-NET "clk_in" TNM_NET = "clk_in";
-TIMESPEC TS_clk_in = PERIOD "clk_in" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
-OFFSET = OUT 20 ns AFTER "clk_in";
+NET "lms_clk" TNM_NET = "lms_clk";
+TIMESPEC TS_lms_clk = PERIOD "lms_clk" 20 ns HIGH 50 % INPUT_JITTER 60 ps;
+OFFSET = OUT 20 ns AFTER "lms_clk";
 INST "clk_in_BUFGP" LOC = R10; #H3;
 NET "clk_in" LOC = R10; #H3;
 NET "clk_in" IOSTANDARD = LVCMOS33;

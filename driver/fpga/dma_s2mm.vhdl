@@ -72,7 +72,7 @@ architecture rtl of dma_s2mm is
     signal We : std_logic;
     signal Wr_addr : natural range 0 to MEM_SIZE-1;
     signal Rd_addr : natural range 0 to MEM_SIZE-1;
-    signal Rd_addr_pre : natural range 0 to MEM_SIZE-1;
+    signal Rd_addr_pre : unsigned(15 downto 0);
     signal Wr_data : std_ulogic_vector(31 downto 0);
     signal Rd_data : std_ulogic_vector(31 downto 0);
     signal Even : boolean;
@@ -159,13 +159,13 @@ begin
     );
 
     --read IO (mux based on word16)
-    Rd_addr_pre <= to_integer(unsigned(mem_addr(15 downto 2)));
-    Rd_addr <= Rd_addr_pre when (mem_sel = '0') else (Rd_addr_pre + 1);
+    Rd_addr_pre <= unsigned(mem_addr) when (mem_sel = '0') else (unsigned(mem_addr) + 2);
+    Rd_addr <= to_integer(Rd_addr_pre(15 downto 2));
     mem_data <= std_logic_vector(Rd_data(15 downto 0)) when (Even)
         else std_logic_vector(Rd_data(31 downto 16));
     process (mem_clk) begin
         if (rising_edge(mem_clk)) then
-            Even <= mem_addr(1) = '0';
+            Even <= Rd_addr_pre(1) = '0';
         end if;
     end process;
 

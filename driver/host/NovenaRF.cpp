@@ -82,7 +82,39 @@ public:
             throw std::runtime_error("Failed to map deframer memory " + std::string(strerror(errno)));
         }
 
+        //do some tests with the dma
         SoapySDR::logf(SOAPY_SDR_TRACE, "FIFO regs: 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+
+        //fill buffer and push the mm2s
+        uint32_t *p = (uint32_t *)_framer0_mem;
+        for (size_t i = 0; i < 10; i++) p[i] = 0xA0000000 | i;
+
+        //push a control cmd for s2mm
+        this->writeRegister(REG_S2MM_FRAMER0_CTRL_ADDR, 32); //start addr
+
+        //push a control cmd for mm2s
+        this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, 0); //start addr
+        this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, 16); //end addr
+
+        //should get stat done for both
+        sleep(1);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "FIFO regs: 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+
+        //lets read stat fifos
+        SoapySDR::logf(SOAPY_SDR_TRACE, "S2MM stat: 0x%x", this->readRegister(REG_S2MM_FRAMER0_STAT_ADDR));
+        SoapySDR::logf(SOAPY_SDR_TRACE, "MM2S stat: 0x%x", this->readRegister(REG_MM2S_FRAMER0_STAT_ADDR));
+
+        //pop
+        this->writeRegister(REG_S2MM_FRAMER0_STAT_ADDR, 0/*dontcare*/);
+        this->writeRegister(REG_MM2S_FRAMER0_STAT_ADDR, 0/*dontcare*/);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "FIFO regs: 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+
+        //readback print
+        uint32_t *o = (uint32_t *)_framer0_mem + (32/sizeof(uint32_t));
+        for (size_t i = 0; i < 10; i++)
+        {
+            SoapySDR::logf(SOAPY_SDR_TRACE, "Buff[%d]: 0x%x", i, o[i]);
+        }
     }
 
     ~NovenaRF(void)
