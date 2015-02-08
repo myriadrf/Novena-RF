@@ -11,6 +11,7 @@
 ------------------------------------------------------------------------
 
 library work;
+use work.spi_components.spi_mod;
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -45,6 +46,9 @@ entity novena_rf is
         lms_rxen : out std_logic;
         lms_txen : out std_logic;
         lms_lmsrst : out std_logic;
+        mrf_gpio0 : out std_logic;
+        mrf_gpio1 : out std_logic;
+        mrf_gpio2 : out std_logic;
 
         --spi to lms
         lms_sen : out std_logic;
@@ -254,9 +258,11 @@ begin
                 elsif (addr_num = REG_LOOPBACK_ADDR) then
                     loopback_test <= reg_data_wr;
                 elsif (addr_num = REG_LMS_GPIO_ADDR) then
-                    lms_lmsrst <= reg_data_wr(0);
-                    lms_rxen <= reg_data_wr(1);
-                    lms_txen <= reg_data_wr(2);
+                    --the ios handled by spi module from lime
+                    --the lms suite automatically should handle these
+                    --lms_lmsrst <= reg_data_wr(0);
+                    --lms_rxen <= reg_data_wr(1);
+                    --lms_txen <= reg_data_wr(2);
                 elsif (addr_num = REG_TIME_LO_ADDR) then
                     if_time_wr(15 downto 0) <= reg_data_wr;
                 elsif (addr_num = REG_TIME_ME_ADDR) then
@@ -314,6 +320,33 @@ begin
         end if;
 
     end process;
+
+    --------------------------------------------------------------------
+    -- lime IOs handled through spi module
+    --------------------------------------------------------------------
+    lms_spi_mod : spi_mod
+    port map (
+        maddress => "011",
+        sadin => cpu_mosi,
+        saclk => cpu_sclk,
+        saen => cpu_sen,
+        sadout => open,
+        hreset => RESETBMCU,
+        clk => bus_clk,
+        measburst => (others => '0'), --unused
+        actid => '0', --unused
+        gpio0 => mrf_gpio0,
+        gpio1 => mrf_gpio1,
+        gpio2 => mrf_gpio2,
+        txen => lms_txen,
+        rxen => lms_rxen,
+        reset => lms_lmsrst,
+        dsrc => open, --unused
+        drestart => open, --unused
+        txdds_fcw => open, --unused
+        txdds_fcw_upd => open, --unused
+        oen => open --unused
+    );
 
     --------------------------------------------------------------------
     -- timer state machine

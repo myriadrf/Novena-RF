@@ -115,12 +115,12 @@ NET "lms_mosi" IOSTANDARD = LVCMOS33;
 NET "cpu_mosi" LOC = A2;
 NET "cpu_mosi" IOSTANDARD = LVCMOS33;
 
-#NET "mrf_gpio0" LOC = R3; #
-#NET "mrf_gpio0" IOSTANDARD = LVCMOS33;
-#NET "mrf_gpio1" LOC = K4; #
-#NET "mrf_gpio1" IOSTANDARD = LVCMOS33;
-#NET "mrf_gpio2" LOC = K3; #
-#NET "mrf_gpio2" IOSTANDARD = LVCMOS33;
+NET "mrf_gpio0" LOC = R3; #
+NET "mrf_gpio0" IOSTANDARD = LVCMOS33;
+NET "mrf_gpio1" LOC = K4; #
+NET "mrf_gpio1" IOSTANDARD = LVCMOS33;
+NET "mrf_gpio2" LOC = K3; #
+NET "mrf_gpio2" IOSTANDARD = LVCMOS33;
 
 
 
