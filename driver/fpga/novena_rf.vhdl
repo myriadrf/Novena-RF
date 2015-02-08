@@ -189,8 +189,13 @@ architecture rtl of novena_rf is
     signal mm2s_deframer0_stat_valid : std_logic;
     signal mm2s_deframer0_stat_ready : std_logic;
 
+    --adc and dac signals
     signal lms_clk : std_logic;
     signal lms_rst : std_logic;
+    signal adc_data : std_logic_vector(31 downto 0);
+    signal dac_data : std_logic_vector(31 downto 0);
+    signal adc_valid : std_logic;
+    signal dac_ready : std_logic;
 
     signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
 begin
@@ -381,11 +386,72 @@ begin
     --------------------------------------------------------------------
     -- TX chain/deframer DMA blocks
     --------------------------------------------------------------------
+    s2mm_deframer0 : entity work.dma_s2mm
+    generic map (
+        MEM_SIZE => 128
+    )
+    port map (
+        mem_clk => bus_clk,
+        mem_rst => bus_rst,
+        stream_clk => lms_clk,
+        stream_rst => lms_rst,
+        ctrl_data => dma_ctrl_data,
+        ctrl_valid => s2mm_deframer0_ctrl_valid,
+        ctrl_ready => s2mm_deframer0_ctrl_ready,
+        stat_data => s2mm_deframer0_stat_data,
+        stat_valid => s2mm_deframer0_stat_valid,
+        stat_ready => s2mm_deframer0_stat_ready,
+        mem_sel => deframer0_sel,
+        mem_addr => deframer0_addr,
+        mem_data => deframer0_data_rd,
+        stream_data => deframer0_stat_data,
+        stream_last => deframer0_stat_last,
+        stream_valid => deframer0_stat_valid,
+        stream_ready => deframer0_stat_ready
+    );
+    mm2s_deframer0 : entity work.dma_mm2s
+    generic map (
+        MEM_SIZE => 128
+    )
+    port map (
+        mem_clk => bus_clk,
+        mem_rst => bus_rst,
+        stream_clk => lms_clk,
+        stream_rst => lms_rst,
+        ctrl_data => dma_ctrl_data,
+        ctrl_valid => mm2s_deframer0_ctrl_valid,
+        ctrl_ready => mm2s_deframer0_ctrl_ready,
+        stat_data => mm2s_deframer0_stat_data,
+        stat_valid => mm2s_deframer0_stat_valid,
+        stat_ready => mm2s_deframer0_stat_ready,
+        mem_sel => deframer0_sel,
+        mem_wr => deframer0_wr,
+        mem_addr => deframer0_addr,
+        mem_data => deframer0_data_wr,
+        stream_data => deframer0_txd_data,
+        stream_last => deframer0_txd_last,
+        stream_valid => deframer0_txd_valid,
+        stream_ready => deframer0_txd_ready
+    );
 
-
+    --loopback for now
+    deframer0_stat_data <= deframer0_txd_data;
+    deframer0_stat_last <= deframer0_txd_last;
+    deframer0_stat_valid <= deframer0_txd_valid;
+    deframer0_txd_ready <= deframer0_stat_ready;
 
     --------------------------------------------------------------------
     -- framers here ... loopback for now
+    --------------------------------------------------------------------
+
+    process (clk_in)
+    begin
+        FPGA_LED2 <= '0';
+    end process;
+    APOPTOSIS <= '0';
+
+    --------------------------------------------------------------------
+    -- lms external interfacing
     --------------------------------------------------------------------
     clk_in_BUFGP: component BUFGP
     port map (
@@ -400,14 +466,18 @@ begin
         reset => lms_rst
     );
 
-    TXIQSEL <= RXIQSEL;
-    TXD <= RXD;
-    APOPTOSIS <= '0';
-
-    process (clk_in)
-    begin
-        FPGA_LED2 <= '0';
-    end process;
+    lms_trx: entity work.lms_trx
+    port map (
+        lms_clk => lms_clk,
+        TXD => TXD,
+        TXIQSEL => TXIQSEL,
+        RXD => RXD,
+        RXIQSEL => RXIQSEL,
+        dac_data => dac_data,
+        dac_ready => dac_ready,
+        adc_data => adc_data,
+        adc_valid => adc_valid
+    );
 
     --------------------------------------------------------------------
     -- bypass cpu spi to lms
