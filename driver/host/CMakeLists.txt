@@ -27,6 +27,11 @@ if (NOT SoapySDR_FOUND)
     message(FATAL_ERROR "SoapySDR development files not found")
 endif ()
 
+if(CMAKE_COMPILER_IS_GNUCXX)
+    #C++11 is a required language feature for this project
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
 include_directories(../kernel)
 
 SOAPY_SDR_MODULE_UTIL(

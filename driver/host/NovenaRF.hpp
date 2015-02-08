@@ -9,6 +9,7 @@
 
 #pragma once
 #include <string>
+#include <cstdint>
 
 /***********************************************************************
  * Configuration settings
@@ -55,7 +56,9 @@
 #define TEST0_BRAM_NUM_ENTRIES 16
 #define FRAMER0_FIFO_NUM_ENTRIES 1024
 #define FRAMER0_S2MM_NUM_ENTRIES 4096
+#define FRAMER0_MM2S_NUM_ENTRIES 64
 #define DEFRAMER0_FIFO_NUM_ENTRIES 1024
+#define DEFRAMER0_S2MM_NUM_ENTRIES 64
 #define DEFRAMER0_MM2S_NUM_ENTRIES 4096
 
 /***********************************************************************
@@ -69,9 +72,19 @@
 
 #define NOVENA_RF_FRAMER0_PAGE_NO 2
 #define NOVENA_RF_FRAMER0_PAGE_SIZE FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t)
+#define NOVENA_RF_FRAMER0_NUM_FRAMES 4
 
 #define NOVENA_RF_DEFRAMER0_PAGE_NO 3
 #define NOVENA_RF_DEFRAMER0_PAGE_SIZE DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t)
+#define NOVENA_RF_DEFRAMER0_NUM_FRAMES 4
+
+enum NovenaRFDMANo
+{
+    NOVENA_RF_FRAMER0_MM2S,
+    NOVENA_RF_FRAMER0_S2MM,
+    NOVENA_RF_DEFRAMER0_MM2S,
+    NOVENA_RF_DEFRAMER0_S2MM,
+};
 
 /***********************************************************************
  * Utility functions

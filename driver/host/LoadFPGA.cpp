@@ -67,7 +67,7 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
     if (spi_fd < 0)
     {
         fclose(fpga_fp);
-        throw std::runtime_error("Failed to open "FPGA_LOAD_SPIDEV": " + std::string(strerror(errno)));
+        throw std::runtime_error("Failed to open " FPGA_LOAD_SPIDEV ": " + std::string(strerror(errno)));
     }
 
     while (true)

@@ -104,7 +104,9 @@ architecture rtl of novena_rf is
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
     constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024;
     constant FRAMER0_S2MM_NUM_ENTRIES : positive := 4096;
+    constant FRAMER0_MM2S_NUM_ENTRIES : positive := 64;
     constant DEFRAMER0_FIFO_NUM_ENTRIES : positive := 1024;
+    constant DEFRAMER0_S2MM_NUM_ENTRIES : positive := 64;
     constant DEFRAMER0_MM2S_NUM_ENTRIES : positive := 4096;
 
     --time registers for framer/deframer
@@ -372,7 +374,7 @@ begin
     --------------------------------------------------------------------
     s2mm_framer0 : entity work.dma_s2mm
     generic map (
-        MEM_SIZE => 16 --small for control message
+        MEM_SIZE => FRAMER0_S2MM_NUM_ENTRIES
     )
     port map (
         mem_clk => bus_clk,
@@ -423,7 +425,7 @@ begin
     --------------------------------------------------------------------
     s2mm_deframer0 : entity work.dma_s2mm
     generic map (
-        MEM_SIZE => DEFRAMER0_MM2S_NUM_ENTRIES
+        MEM_SIZE => DEFRAMER0_S2MM_NUM_ENTRIES
     )
     port map (
         mem_clk => bus_clk,
@@ -446,7 +448,7 @@ begin
     );
     mm2s_deframer0 : entity work.dma_mm2s
     generic map (
-        MEM_SIZE => 16 --small for status report
+        MEM_SIZE => DEFRAMER0_MM2S_NUM_ENTRIES
     )
     port map (
         mem_clk => bus_clk,

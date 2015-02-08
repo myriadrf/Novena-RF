@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include "NovenaRF.hpp"
+#include "NovenaDMA.hpp"
 #include "novena_rf.h" //shared kernel module header
 
 #include <SoapySDR/Device.hpp>
@@ -19,6 +20,9 @@
 #include <cstring>
 #include <cstdio>
 #include <cerrno>
+#include <memory>
+#include <chrono>
+#include <thread>
 
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -26,7 +30,6 @@
 #include <fcntl.h>
 #include <sys/mman.h> //mmap
 #include <unistd.h> //close
-#include <stdint.h>
 
 /***********************************************************************
  * Device interface
@@ -36,15 +39,15 @@ class NovenaRF : public SoapySDR::Device
 public:
     NovenaRF(const std::string &fpgaImage):
         _novena_fd(-1),
-        _regs(NULL),
-        _framer0_mem(NULL),
-        _deframer0_mem(NULL)
+        _regs(nullptr),
+        _framer0_mem(nullptr),
+        _deframer0_mem(nullptr)
     {
         //open the file descriptor for the novena rf module
         _novena_fd = open(NOVENA_RF_DEVFS, O_RDWR | O_SYNC);
         if (_novena_fd <= 0)
         {
-            throw std::runtime_error("Failed to open "NOVENA_RF_DEVFS": " + std::string(strerror(errno)));
+            throw std::runtime_error("Failed to open " NOVENA_RF_DEVFS ": " + std::string(strerror(errno)));
         }
 
         //initialize the EIM configuration
@@ -91,6 +94,9 @@ public:
         close(_novena_fd);
     }
 
+    /*******************************************************************
+     * FPGA checks and loading
+     ******************************************************************/
     void fpgaCheckAndLoad(const std::string &fpgaImage)
     {
         //hash the fpga image
@@ -131,6 +137,9 @@ public:
         this->writeRegister(REG_LOOPBACK_ADDR, imageHash);
     }
 
+    /*******************************************************************
+     * Self test
+     ******************************************************************/
     void selfTestBus(void)
     {
         //register loopback test
@@ -175,6 +184,105 @@ public:
     }
 
     /*******************************************************************
+     * Scatter/gather DMA controls
+     * All lengths are specified in bytes.
+     * Acquire calls return handles used in the release call,
+     * or a negative number when the call fails or timeout.
+     ******************************************************************/
+    void initDMA(void)
+    {
+        //create instruction table for predefined memory offsets
+        _dmaSgTables.resize(4);
+        _dmaSgTables[NOVENA_RF_FRAMER0_MM2S] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_framer0_mem, FRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
+        _dmaSgTables[NOVENA_RF_FRAMER0_S2MM] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_framer0_mem, FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
+        _dmaSgTables[NOVENA_RF_DEFRAMER0_MM2S] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
+        _dmaSgTables[NOVENA_RF_DEFRAMER0_S2MM] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_deframer0_mem, DEFRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
+
+        //s2mm engines need to be prepped with instructions
+
+        //mm2s engines are marked as ready to be used
+    }
+
+    int acquireDMA(const NovenaRFDMANo which, size_t &length, const long timeoutUs)
+    {
+        auto &table = *_dmaSgTables[size_t(which)];
+        auto exitTime = std::chrono::system_clock::now() + std::chrono::microseconds(timeoutUs);
+        while (true)
+        {
+            this->_checkAndUpdateDMAState(which);
+            if (table.numAvailable() > 0) break;
+            //TODO need irq here
+            std::this_thread::sleep_for(std::chrono::microseconds(1000));
+            if (std::chrono::system_clock::now() > exitTime) return -1;
+        }
+        return table.acquireHead(length);
+    }
+
+    void releaseDMA(const NovenaRFDMANo which, const int handle, const size_t length)
+    {
+        auto &table = *_dmaSgTables[size_t(which)];
+        table.markReleased(handle);
+        switch(which)
+        {
+        case NOVENA_RF_FRAMER0_MM2S:
+            this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
+            this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)+length); //end addr (exclusive)
+            break;
+        case NOVENA_RF_FRAMER0_S2MM:
+            this->writeRegister(REG_S2MM_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
+            break;
+        case NOVENA_RF_DEFRAMER0_MM2S:
+            this->writeRegister(REG_MM2S_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
+            this->writeRegister(REG_MM2S_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)+length); //end addr (exclusive)
+            break;
+        case NOVENA_RF_DEFRAMER0_S2MM:
+            this->writeRegister(REG_S2MM_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
+            break;
+        }
+    }
+
+    void *bufferDMA(const NovenaRFDMANo which, const int handle)
+    {
+        auto &table = *_dmaSgTables[size_t(which)];
+        return table.buffFromFrameNum(handle);
+    }
+
+    void _checkAndUpdateDMAState(const NovenaRFDMANo which)
+    {
+        auto &table = *_dmaSgTables[size_t(which)];
+        //handle status fifos to make buffers available
+        while (true)
+        {
+            int readies = this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR);
+            switch(which)
+            {
+            case NOVENA_RF_FRAMER0_MM2S:
+                if (((readies >> 3) & 0x1) == 0) return;
+                table.markTailAvailable(table.bytesPerFrame());
+                this->writeRegister(REG_MM2S_FRAMER0_STAT_ADDR, 0); //pop
+                break;
+            case NOVENA_RF_FRAMER0_S2MM:
+                if (((readies >> 1) & 0x1) == 0) return;
+                table.markTailAvailable(this->readRegister(REG_S2MM_FRAMER0_STAT_ADDR));
+                this->writeRegister(REG_S2MM_FRAMER0_STAT_ADDR, 0); //pop
+                break;
+            case NOVENA_RF_DEFRAMER0_MM2S:
+                if (((readies >> 7) & 0x1) == 0) return;
+                table.markTailAvailable(table.bytesPerFrame());
+                this->writeRegister(REG_MM2S_DEFRAMER0_STAT_ADDR, 0); //pop
+                break;
+            case NOVENA_RF_DEFRAMER0_S2MM:
+                if (((readies >> 5) & 0x1) == 0) return;
+                table.markTailAvailable(this->readRegister(REG_S2MM_DEFRAMER0_STAT_ADDR));
+                this->writeRegister(REG_S2MM_DEFRAMER0_STAT_ADDR, 0); //pop
+                break;
+            }
+        }
+    }
+
+    std::vector<std::unique_ptr<NovenaDmaSgTable>> _dmaSgTables;
+
+    /*******************************************************************
      * Identification API
      ******************************************************************/
     std::string getDriverKey(void) const
@@ -190,6 +298,15 @@ public:
     /*******************************************************************
      * Channels API
      ******************************************************************/
+    size_t getNumChannels(const int) const
+    {
+        return 1;
+    }
+
+    bool getFullDuplex(const int, const size_t) const
+    {
+        return true;
+    }
 
     /*******************************************************************
      * Stream API
@@ -218,6 +335,10 @@ public:
     /*******************************************************************
      * Clocking API
      ******************************************************************/
+    double getMasterClockRate(void) const
+    {
+        return LMS_CLOCK_RATE;
+    }
 
     /*******************************************************************
      * Time API
@@ -311,9 +432,9 @@ public:
 
 private:
     int _novena_fd; //novena_rf kernel module
-    void *_regs;
-    void *_framer0_mem;
-    void *_deframer0_mem;
+    void *_regs; //mapped register space
+    void *_framer0_mem; //mapped RX DMA and RX control
+    void *_deframer0_mem; //mapped TX DMA and TX status
 };
 
 /***********************************************************************
