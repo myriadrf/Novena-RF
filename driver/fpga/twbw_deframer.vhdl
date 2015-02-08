@@ -151,6 +151,7 @@ architecture rtl of twbw_deframer is
     signal underflow : std_logic := '0';
     signal time_error : std_logic := '0';
     signal end_burst : std_logic := '0';
+    signal time_wait0 : boolean := false;
 
 begin
     assert (TIME_WIDTH <= 64) report "twbw_deframer: time width too large" severity failure;
@@ -252,9 +253,7 @@ begin
     --------------------------------------------------------------------
     -- deframer state machine
     --------------------------------------------------------------------
-    process (clk)
-        variable time_wait0 : boolean := false;
-    begin
+    process (clk) begin
 
     if (rising_edge(clk)) then
 
@@ -274,7 +273,7 @@ begin
             stream_time <= to_unsigned(0, TIME_WIDTH);
             time_error <= '0';
             end_burst <= '0';
-            time_wait0 := false;
+            time_wait0 <= false;
         else case state is
 
         when STATE_TX_IDLE =>
@@ -325,7 +324,7 @@ begin
                     state <= STATE_TX_IDLE; --tlast here?
                 else
                     state <= STATE_WAIT_TIME;
-                    time_wait0 := true;
+                    time_wait0 <= true;
                 end if;
             end if;
 
@@ -334,7 +333,7 @@ begin
             --if no time was specified, leave asap
             --we ignore the time if the dac is already active
             --to support back to back timestamped packets
-            time_wait0 := false;
+            time_wait0 <= false;
             if (time_flag = '0' or dac_active_i) then
                 state <= STATE_SAMPS_IN;
             --time_wait0 ensures that we can only have late errors on the first cycle in this state

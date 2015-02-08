@@ -153,6 +153,7 @@ architecture rtl of twbw_framer is
     signal burst_done : boolean := false;
     signal overflow : std_logic := '0';
     signal time_error : std_logic := '0';
+    signal time_wait0 : boolean := false;
 
 begin
     assert (TIME_WIDTH <= 64) report "twbw_framer: time width too large" severity failure;
@@ -256,9 +257,7 @@ begin
     --------------------------------------------------------------------
     -- framer state machine
     --------------------------------------------------------------------
-    process (clk)
-        variable time_wait0 : boolean := false;
-    begin
+    process (clk) begin
 
     framed_fifo_in_hdr <= (others => '0');
     if (state = STATE_HDR0_OUT) then
@@ -290,7 +289,7 @@ begin
             stream_time <= to_unsigned(0, stream_time'length);
             overflow <= '0';
             time_error <= '0';
-            time_wait0 := false;
+            time_wait0 <= false;
         else case state is
 
         when STATE_CTRL_IDLE =>
@@ -312,14 +311,14 @@ begin
                 burst_size <= unsigned(ctrl_fifo_out_data(95 downto 64));
                 stream_time <= unsigned(ctrl_fifo_out_data(TIME_WIDTH-1 downto 0));
                 state <= STATE_WAIT_TIME;
-                time_wait0 := true;
+                time_wait0 <= true;
             end if;
 
         when STATE_WAIT_TIME =>
             --wait for the specified time to occur
             --if no time was specified, leave asap
             frame_count <= frame_size;
-            time_wait0 := false;
+            time_wait0 <= false;
             if (time_flag = '0') then
                 adc_active_i <= true;
                 state <= STATE_HDR0_OUT;

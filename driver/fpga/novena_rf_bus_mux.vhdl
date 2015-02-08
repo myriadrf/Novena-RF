@@ -1,7 +1,5 @@
 ------------------------------------------------------------------------
--- FPGA design for Novena-RF SDR
---
--- The Novena RF bux mux:
+-- The Novena RF bus mux:
 --
 -- Mux the captured EIM bus into multiple buses based on address.
 -- The buses are selected with the top address bits 18:16.
@@ -11,7 +9,7 @@
 -- Copyright (c) 2015-2015 Lime Microsystems
 -- Copyright (c) 2015-2015 Andrew "bunnie" Huang
 -- SPDX-License-Identifier: Apache-2.0
--- http:--www.apache.org/licenses/LICENSE-2.0
+-- http://www.apache.org/licenses/LICENSE-2.0
 ------------------------------------------------------------------------
 
 library work;
