@@ -28,8 +28,14 @@
 #define NOVENA_RF_REGS_PAGE_NO 0
 #define NOVENA_RF_REGS_PAGE_SIZE 256
 
-#define NOVENA_RF_TEST_PAGE_NO 1
-#define NOVENA_RF_TEST_PAGE_SIZE 16
+#define NOVENA_RF_TEST0_PAGE_NO 1
+#define NOVENA_RF_TEST0_PAGE_SIZE 16*2
+
+#define NOVENA_RF_FRAMER0_PAGE_NO 2
+#define NOVENA_RF_FRAMER0_PAGE_SIZE 128*4
+
+#define NOVENA_RF_DEFRAMER0_PAGE_NO 3
+#define NOVENA_RF_DEFRAMER0_PAGE_SIZE 128*4
 
 /***********************************************************************
  * FPGA register #defines -- from the VHDL
@@ -47,7 +53,22 @@
 #define REG_TIME_EX_ADDR 26
 #define REG_TIME_CTRL_ADDR 28
 
+//--control registers: write to push into DMA control fifo
+//--status registers: read to query value without removal,
+//--and write to pop the value from the DMA status fifo.
+#define REG_S2MM_FRAMER0_CTRL_ADDR 32
+#define REG_S2MM_FRAMER0_STAT_ADDR 34
+#define REG_MM2S_FRAMER0_CTRL_ADDR 36
+#define REG_MM2S_FRAMER0_STAT_ADDR 38
+#define REG_S2MM_DEFRAMER0_CTRL_ADDR 40
+#define REG_S2MM_DEFRAMER0_STAT_ADDR 42
+#define REG_MM2S_DEFRAMER0_CTRL_ADDR 44
+#define REG_MM2S_DEFRAMER0_STAT_ADDR 46
+//--read-only register to query the FIFO readiness
+#define REG_DMA_FIFO_RDY_CTRL_ADDR 48
+
 /***********************************************************************
  * Utility functions
  **********************************************************************/
 void novenaRF_loadFpga(const std::string &fpgaImage);
+unsigned novenaRF_hashFpga(const std::string &fpgaImage);

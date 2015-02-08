@@ -81,3 +81,33 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
     fclose(fpga_fp);
     close(spi_fd);
 }
+
+//http://www.eternallyconfuzzled.com/tuts/algorithms/jsw_tut_hashing.aspx
+//just needed a simple hash algorithm
+static unsigned fnv_hash(unsigned char *p, int len)
+{
+    unsigned h = 2166136261ul;
+    for (int i = 0; i < len; i++)
+        h = ( h * 16777619ul ) ^ p[i];
+
+    return h;
+}
+
+unsigned novenaRF_hashFpga(const std::string &fpgaImage)
+{
+    //open the specified FPGA image
+    FILE *fpga_fp = fopen(fpgaImage.c_str(), "rb");
+    if (fpga_fp == NULL)
+    {
+        throw std::runtime_error("Failed to open "+fpgaImage+": " + std::string(strerror(errno)));
+    }
+
+    //just read enough to make a hash that can differentiate images
+    unsigned char buff[4096];
+    int r = fread(buff, 1, sizeof(buff), fpga_fp);
+    fclose(fpga_fp);
+
+    if (r <= 0) throw std::runtime_error("Failed to read "+fpgaImage+": " + std::string(strerror(errno)));
+
+    return fnv_hash(buff, r);
+}

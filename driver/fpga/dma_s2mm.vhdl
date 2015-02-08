@@ -29,14 +29,14 @@ entity dma_s2mm is
         --control interface (mem domain)
         --format: begin_addr16
         --write this control fifo to cause a DMA
-        ctrl_data : in std_logic_vector(31 downto 0);
+        ctrl_data : in std_logic_vector(15 downto 0);
         ctrl_valid : in std_logic;
         ctrl_ready : out std_logic;
 
         --status interface (mem domain)
         --format: end_addr16
         --read the status fifo when DMAs complete
-        stat_data : out std_logic_vector(31 downto 0);
+        stat_data : out std_logic_vector(15 downto 0);
         stat_valid : out std_logic;
         stat_ready : in std_logic;
 
@@ -59,12 +59,12 @@ architecture rtl of dma_s2mm is
     signal stream_ready_int : std_logic;
 
     --ctrl fifo in stream domain
-    signal ctrl_data_int : std_logic_vector(31 downto 0);
+    signal ctrl_data_int : std_logic_vector(15 downto 0);
     signal ctrl_valid_int : std_logic;
     signal ctrl_ready_int : std_logic;
 
     --stat fifo in stream domain
-    signal stat_data_int : std_logic_vector(31 downto 0);
+    signal stat_data_int : std_logic_vector(15 downto 0);
     signal stat_valid_int : std_logic;
     signal stat_ready_int : std_logic;
 
@@ -137,8 +137,7 @@ begin
         out_ready => stat_ready
     );
 
-    stat_data_int(31 downto 16) <= (others => '0');
-    stat_data_int(15 downto 0) <= std_logic_vector(active_addr);
+    stat_data_int <= std_logic_vector(active_addr);
     stat_valid_int <= '1' when (state = STATE_WR_STAT) else '0';
 
     --------------------------------------------------------------------
@@ -190,7 +189,7 @@ begin
         when STATE_RD_CTRL =>
             if (ctrl_valid_int = '1' and ctrl_ready_int = '1') then
                 state <= STATE_STREAM;
-                active_addr <= unsigned(ctrl_data_int(15 downto 0));
+                active_addr <= unsigned(ctrl_data_int);
             end if;
 
         when STATE_STREAM =>

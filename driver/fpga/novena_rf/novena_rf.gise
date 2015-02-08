@@ -105,10 +105,12 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1423355026" xil_pn:in_ck="-1514257744368496930" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="-3377474266889039906" xil_pn:start_ts="1423354996">
+    <transform xil_pn:end_ts="1423359462" xil_pn:in_ck="-1514257744368496930" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="-3377474266889039906" xil_pn:start_ts="1423359431">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="_xmsgs/xst.xmsgs"/>
       <outfile xil_pn:name="novena_rf.lso"/>
       <outfile xil_pn:name="novena_rf.ngc"/>
@@ -125,25 +127,20 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1423339365" xil_pn:in_ck="-1363650003417648552" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="1938504396582317744" xil_pn:start_ts="1423339352">
+    <transform xil_pn:end_ts="1423359743" xil_pn:in_ck="-1363650003417648552" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="1938504396582317744" xil_pn:start_ts="1423359730">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForInputs"/>
-      <status xil_pn:value="InputChanged"/>
       <outfile xil_pn:name="_ngo"/>
       <outfile xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
       <outfile xil_pn:name="novena_rf.bld"/>
       <outfile xil_pn:name="novena_rf.ngd"/>
       <outfile xil_pn:name="novena_rf_ngdbuild.xrpt"/>
     </transform>
-    <transform xil_pn:end_ts="1423339405" xil_pn:in_ck="-1478835986384380198" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="4245753365082497697" xil_pn:start_ts="1423339365">
+    <transform xil_pn:end_ts="1423359799" xil_pn:in_ck="-1478835986384380198" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="4245753365082497697" xil_pn:start_ts="1423359743">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
-      <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="_xmsgs/map.xmsgs"/>
       <outfile xil_pn:name="novena_rf.pcf"/>
       <outfile xil_pn:name="novena_rf_map.map"/>
@@ -154,11 +151,10 @@
       <outfile xil_pn:name="novena_rf_summary.xml"/>
       <outfile xil_pn:name="novena_rf_usage.xml"/>
     </transform>
-    <transform xil_pn:end_ts="1423339476" xil_pn:in_ck="4647512924445428467" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="-3829590541433901613" xil_pn:start_ts="1423339405">
+    <transform xil_pn:end_ts="1423359879" xil_pn:in_ck="4647512924445428467" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="-3829590541433901613" xil_pn:start_ts="1423359799">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="_xmsgs/par.xmsgs"/>
       <outfile xil_pn:name="novena_rf.ncd"/>
       <outfile xil_pn:name="novena_rf.pad"/>
@@ -170,13 +166,10 @@
       <outfile xil_pn:name="novena_rf_pad.txt"/>
       <outfile xil_pn:name="novena_rf_par.xrpt"/>
     </transform>
-    <transform xil_pn:end_ts="1423339502" xil_pn:in_ck="4796152577152915809" xil_pn:name="TRANEXT_bitFile_spartan6" xil_pn:prop_ck="5341574683187206424" xil_pn:start_ts="1423339476">
-      <status xil_pn:value="AbortedRun"/>
+    <transform xil_pn:end_ts="1423359906" xil_pn:in_ck="4796152577152915809" xil_pn:name="TRANEXT_bitFile_spartan6" xil_pn:prop_ck="5341574683187206424" xil_pn:start_ts="1423359879">
+      <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
-      <status xil_pn:value="OutOfDateForOutputs"/>
-      <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="_xmsgs/bitgen.xmsgs"/>
       <outfile xil_pn:name="novena_rf.bgn"/>
       <outfile xil_pn:name="novena_rf.bit"/>
@@ -185,11 +178,10 @@
       <outfile xil_pn:name="webtalk.log"/>
       <outfile xil_pn:name="webtalk_pn.xml"/>
     </transform>
-    <transform xil_pn:end_ts="1423339476" xil_pn:in_ck="-1478835986384380330" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416185" xil_pn:start_ts="1423339464">
+    <transform xil_pn:end_ts="1423359879" xil_pn:in_ck="-1478835986384380330" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416185" xil_pn:start_ts="1423359866">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="_xmsgs/trce.xmsgs"/>
       <outfile xil_pn:name="novena_rf.twr"/>
       <outfile xil_pn:name="novena_rf.twx"/>

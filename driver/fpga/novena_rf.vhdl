@@ -83,15 +83,19 @@ architecture rtl of novena_rf is
     constant REG_TIME_EX_ADDR : natural := 26;
     constant REG_TIME_CTRL_ADDR : natural := 28;
 
-    constant REG_S2MM_FRAMER0_CTRL_LO_ADDR : natural := 32;
-    constant REG_S2MM_FRAMER0_CTRL_HI_ADDR : natural := 34;
-    constant REG_MM2S_FRAMER0_CTRL_LO_ADDR : natural := 36;
-    constant REG_MM2S_FRAMER0_CTRL_HI_ADDR : natural := 38;
-    constant REG_S2MM_DEFRAMER0_CTRL_LO_ADDR : natural := 40;
-    constant REG_S2MM_DEFRAMER0_CTRL_HI_ADDR : natural := 42;
-    constant REG_MM2S_DEFRAMER0_CTRL_LO_ADDR : natural := 44;
-    constant REG_MM2S_DEFRAMER0_CTRL_HI_ADDR : natural := 46;
-    constant REG_ALL_DMA_FIFO_RV_CTRLS_ADDR : natural := 48;
+    --control registers: write to push into DMA control fifo
+    --status registers: read to query value without removal,
+    --and write to pop the value from the DMA status fifo.
+    constant REG_S2MM_FRAMER0_CTRL_ADDR : natural := 32;
+    constant REG_S2MM_FRAMER0_STAT_ADDR : natural := 34;
+    constant REG_MM2S_FRAMER0_CTRL_ADDR : natural := 36;
+    constant REG_MM2S_FRAMER0_STAT_ADDR : natural := 38;
+    constant REG_S2MM_DEFRAMER0_CTRL_ADDR : natural := 40;
+    constant REG_S2MM_DEFRAMER0_STAT_ADDR : natural := 42;
+    constant REG_MM2S_DEFRAMER0_CTRL_ADDR : natural := 44;
+    constant REG_MM2S_DEFRAMER0_STAT_ADDR : natural := 46;
+    --read-only register to query the FIFO readiness
+    constant REG_DMA_FIFO_RDY_CTRL_ADDR : natural := 48;
 
     --time registers for framer/deframer
     signal if_time : unsigned(63 downto 0);
@@ -163,22 +167,27 @@ architecture rtl of novena_rf is
     signal deframer0_stat_ready : std_logic;
 
     --dma control and status signals
-    signal dma_ctrl_data : std_logic_vector(31 downto 0); --setting for all DMAs
-    signal dma_stat_data : std_logic_vector(31 downto 0); --readback for all DMAs
+    signal dma_ctrl_data : std_logic_vector(15 downto 0); --setting for all DMAs
     signal s2mm_framer0_ctrl_valid : std_logic;
     signal s2mm_framer0_ctrl_ready : std_logic;
-    signal s2mm_framer0_stat_data : std_logic_vector(31 downto 0);
+    signal s2mm_framer0_stat_data : std_logic_vector(15 downto 0);
     signal s2mm_framer0_stat_valid : std_logic;
     signal s2mm_framer0_stat_ready : std_logic;
     signal mm2s_framer0_ctrl_valid : std_logic;
     signal mm2s_framer0_ctrl_ready : std_logic;
+    signal mm2s_framer0_stat_data : std_logic_vector(15 downto 0);
+    signal mm2s_framer0_stat_valid : std_logic;
+    signal mm2s_framer0_stat_ready : std_logic;
     signal s2mm_deframer0_ctrl_valid : std_logic;
     signal s2mm_deframer0_ctrl_ready : std_logic;
-    signal s2mm_deframer0_stat_data : std_logic_vector(31 downto 0);
+    signal s2mm_deframer0_stat_data : std_logic_vector(15 downto 0);
     signal s2mm_deframer0_stat_valid : std_logic;
     signal s2mm_deframer0_stat_ready : std_logic;
     signal mm2s_deframer0_ctrl_valid : std_logic;
     signal mm2s_deframer0_ctrl_ready : std_logic;
+    signal mm2s_deframer0_stat_data : std_logic_vector(15 downto 0);
+    signal mm2s_deframer0_stat_valid : std_logic;
+    signal mm2s_deframer0_stat_ready : std_logic;
 
     signal lms_clk : std_logic;
     signal lms_rst : std_logic;
@@ -193,6 +202,36 @@ begin
         variable addr_num : natural;
     begin
         addr_num := to_integer(unsigned(reg_addr(7 downto 0)));
+
+        --register to DMA control fifo bridge
+        if (rising_edge(bus_clk)) then
+            dma_ctrl_data <= reg_data_wr;
+            s2mm_framer0_ctrl_valid <= '0';
+            s2mm_framer0_stat_ready <= '0';
+            mm2s_framer0_ctrl_valid <= '0';
+            mm2s_framer0_stat_ready <= '0';
+            s2mm_deframer0_ctrl_valid <= '0';
+            s2mm_deframer0_stat_ready <= '0';
+            mm2s_deframer0_ctrl_valid <= '0';
+            mm2s_deframer0_stat_ready <= '0';
+            if (addr_num = REG_S2MM_FRAMER0_CTRL_ADDR) then
+                s2mm_framer0_ctrl_valid <= reg_sel and reg_wr;
+            elsif (addr_num = REG_S2MM_FRAMER0_STAT_ADDR) then
+                s2mm_framer0_stat_ready <= reg_sel and reg_wr;
+            elsif (addr_num = REG_MM2S_FRAMER0_CTRL_ADDR) then
+                mm2s_framer0_ctrl_valid <= reg_sel and reg_wr;
+            elsif (addr_num = REG_MM2S_FRAMER0_STAT_ADDR) then
+                mm2s_framer0_stat_ready <= reg_sel and reg_wr;
+            elsif (addr_num = REG_S2MM_DEFRAMER0_CTRL_ADDR) then
+                s2mm_deframer0_ctrl_valid <= reg_sel and reg_wr;
+            elsif (addr_num = REG_S2MM_DEFRAMER0_STAT_ADDR) then
+                s2mm_deframer0_stat_ready <= reg_sel and reg_wr;
+            elsif (addr_num = REG_MM2S_DEFRAMER0_CTRL_ADDR) then
+                mm2s_deframer0_ctrl_valid <= reg_sel and reg_wr;
+            elsif (addr_num = REG_MM2S_DEFRAMER0_STAT_ADDR) then
+                mm2s_deframer0_stat_ready <= reg_sel and reg_wr;
+            end if;
+        end if;
 
         --handle register writes
         if (rising_edge(bus_clk)) then
@@ -236,9 +275,29 @@ begin
                 reg_data_rd <= if_time_rd(47 downto 32);
             elsif (addr_num = REG_TIME_EX_ADDR) then
                 reg_data_rd <= if_time_rd(63 downto 48);
+            elsif (addr_num = REG_S2MM_FRAMER0_STAT_ADDR) then
+                reg_data_rd <= s2mm_framer0_stat_data;
+            elsif (addr_num = REG_MM2s_FRAMER0_STAT_ADDR) then
+                reg_data_rd <= mm2s_framer0_stat_data;
+            elsif (addr_num = REG_S2MM_DEFRAMER0_STAT_ADDR) then
+                reg_data_rd <= s2mm_deframer0_stat_data;
+            elsif (addr_num = REG_MM2S_DEFRAMER0_STAT_ADDR) then
+                reg_data_rd <= mm2s_deframer0_stat_data;
+            elsif (addr_num = REG_DMA_FIFO_RDY_CTRL_ADDR) then
+                reg_data_rd(0) <= s2mm_framer0_ctrl_ready;
+                reg_data_rd(1) <= s2mm_framer0_stat_valid;
+                reg_data_rd(2) <= mm2s_framer0_ctrl_ready;
+                reg_data_rd(3) <= mm2s_framer0_stat_valid;
+                reg_data_rd(4) <= s2mm_deframer0_ctrl_ready;
+                reg_data_rd(5) <= s2mm_deframer0_stat_valid;
+                reg_data_rd(6) <= mm2s_deframer0_ctrl_ready;
+                reg_data_rd(7) <= mm2s_deframer0_stat_valid;
+                reg_data_rd(15 downto 8) <= (others => '0');
             else
                 reg_data_rd <= (others => '1');
             end if;
+        else
+            reg_data_rd <= (others => '1');
         end if;
 
     end process;
@@ -300,6 +359,9 @@ begin
         ctrl_data => dma_ctrl_data,
         ctrl_valid => mm2s_framer0_ctrl_valid,
         ctrl_ready => mm2s_framer0_ctrl_ready,
+        stat_data => mm2s_framer0_stat_data,
+        stat_valid => mm2s_framer0_stat_valid,
+        stat_ready => mm2s_framer0_stat_ready,
         mem_sel => framer0_sel,
         mem_wr => framer0_wr,
         mem_addr => framer0_addr,

@@ -27,11 +27,19 @@ entity dma_mm2s is
         stream_rst : in std_logic;
 
         --control interface (mem domain)
-        --format: end_addr16, begin_addr16
+        --line0: begin_addr16
+        --line1: end_addr16
         --write this control fifo to cause a DMA
-        ctrl_data : in std_logic_vector(31 downto 0);
+        ctrl_data : in std_logic_vector(15 downto 0);
         ctrl_valid : in std_logic;
         ctrl_ready : out std_logic;
+
+        --status interface (mem domain)
+        --format: end_addr16
+        --read the status fifo when DMAs complete
+        stat_data : out std_logic_vector(15 downto 0);
+        stat_valid : out std_logic;
+        stat_ready : in std_logic;
 
         --memory interface
         mem_sel : in std_logic;
@@ -54,9 +62,14 @@ architecture rtl of dma_mm2s is
     signal stream_last_int : std_logic;
 
     --ctrl fifo in stream domain
-    signal ctrl_data_int : std_logic_vector(31 downto 0);
+    signal ctrl_data_int : std_logic_vector(15 downto 0);
     signal ctrl_valid_int : std_logic;
     signal ctrl_ready_int : std_logic;
+
+    --stat fifo in stream domain
+    signal stat_data_int : std_logic_vector(15 downto 0);
+    signal stat_valid_int : std_logic;
+    signal stat_ready_int : std_logic;
 
     --ram access signals
     signal Re : std_logic;
@@ -72,8 +85,10 @@ architecture rtl of dma_mm2s is
     --state machine signals
     type state_type is (
         STATE_RD_CTRL,
+        STATE_RD_END,
         STATE_READ0,
-        STATE_STREAM);
+        STATE_STREAM,
+        STATE_WR_STAT);
     signal state : state_type;
     signal active_addr : unsigned(15 downto 0);
     signal last_addr : unsigned(15 downto 0);
@@ -111,7 +126,31 @@ begin
         out_ready => ctrl_ready_int
     );
 
-    ctrl_ready_int <= '1' when (state = STATE_RD_CTRL) else '0';
+    ctrl_ready_int <= '1' when (state = STATE_RD_CTRL or state = STATE_RD_END) else '0';
+
+    --------------------------------------------------------------------
+    -- Status FIFO
+    --------------------------------------------------------------------
+    stat_fifo : entity work.StreamFifoXClk
+    generic map (
+        MEM_SIZE => 16,
+        SYNC_READ => false
+    )
+    port map (
+        in_clk => stream_clk,
+        in_rst => stream_rst,
+        out_clk => mem_clk,
+        out_rst => mem_rst,
+        in_data => stat_data_int,
+        in_valid => stat_valid_int,
+        in_ready => stat_ready_int,
+        out_data => stat_data,
+        out_valid => stat_valid,
+        out_ready => stat_ready
+    );
+
+    stat_data_int <= std_logic_vector(active_addr);
+    stat_valid_int <= '1' when (state = STATE_WR_STAT) else '0';
 
     --------------------------------------------------------------------
     -- DMA RAM connections
@@ -171,9 +210,14 @@ begin
 
         when STATE_RD_CTRL =>
             if (ctrl_valid_int = '1' and ctrl_ready_int = '1') then
+                state <= STATE_RD_END;
+                active_addr <= unsigned(ctrl_data_int);
+            end if;
+
+        when STATE_RD_END =>
+            if (ctrl_valid_int = '1' and ctrl_ready_int = '1') then
                 state <= STATE_READ0;
-                active_addr <= unsigned(ctrl_data_int(15 downto 0));
-                last_addr <= unsigned(ctrl_data_int(31 downto 16));
+                last_addr <= unsigned(ctrl_data_int);
             end if;
 
         when STATE_READ0 =>
@@ -183,9 +227,13 @@ begin
 
             if (stream_valid_int = '1' and stream_ready = '1') then
                 if (stream_last_int = '1') then
-                    state <= STATE_RD_CTRL;
-                    stream_valid_int <= '0';
+                    state <= STATE_WR_STAT;
                 end if;
+            end if;
+
+        when STATE_WR_STAT =>
+            if (stat_valid_int = '1' and stat_ready_int = '1') then
+                state <= STATE_RD_CTRL;
             end if;
 
         end case;
