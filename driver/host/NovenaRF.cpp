@@ -10,6 +10,7 @@
 #include "NovenaRF.hpp"
 #include "NovenaDMA.hpp"
 #include "novena_rf.h" //shared kernel module header
+#include "twbw_helper.h"
 
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Registry.hpp>
@@ -82,6 +83,8 @@ public:
         {
             throw std::runtime_error("Failed to map deframer memory " + std::string(strerror(errno)));
         }
+
+        this->initDMAChannels();
     }
 
     ~NovenaRF(void)
@@ -133,8 +136,6 @@ public:
 
         //store the hash in the loopback
         this->writeRegister(REG_LOOPBACK_ADDR, imageHash);
-
-        this->initDMAChannels();
     }
 
     /*******************************************************************
@@ -200,6 +201,58 @@ public:
         _deframer0_txd_chan.reset(new NovenaDmaChannel(
             NRF_DMA_DIR_MM2S, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
             _deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
+
+
+        //quick framer test
+        size_t length = 0;
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        int ctrlHandle = _framer0_ctrl_chan->acquire(length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "ctrlHandle %d", ctrlHandle);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
+        twbw_framer_ctrl_packer(
+            _framer0_ctrl_chan->buffer(ctrlHandle), length,
+            0xAB /*tag*/, false, 0, true/*burst*/,
+            1024/*frame size*/, 10/*burst size*/);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        _framer0_ctrl_chan->release(ctrlHandle, length);
+        bool rdy = _framer0_rxd_chan->waitReady(100000);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x, waitReady=%d\n", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR), rdy);
+
+        int rxdHandle = _framer0_rxd_chan->acquire(length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "rxdHandle %d", rxdHandle);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "line0 0x%x", ((uint32_t *)_framer0_rxd_chan->buffer(rxdHandle))[0]);
+        size_t numSamps;
+        bool overflow;
+        int idTag;
+        bool hasTime;
+        long long timeTicks;
+        bool timeError;
+        bool isBurst;
+        bool burstEnd;
+        twbw_framer_data_unpacker(
+            _framer0_rxd_chan->buffer(rxdHandle), length, sizeof(uint32_t),
+            numSamps,
+            overflow,
+            idTag,
+            hasTime,
+            timeTicks,
+            timeError,
+            isBurst,
+            burstEnd
+        );
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        _framer0_rxd_chan->release(rxdHandle, length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        SoapySDR::logf(SOAPY_SDR_TRACE, "numSamps %d", numSamps);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "overflow %d", overflow);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "idTag 0x%0x", idTag);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "hasTime %d", hasTime);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "timeTicks %d", timeTicks);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "timeError %d", timeError);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "isBurst %d", isBurst);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "burstEnd %d", burstEnd);
+
     }
 
     /*******************************************************************
