@@ -63,6 +63,8 @@
 
 /***********************************************************************
  * Memory mapped #defines
+ * The page numbers are defined in the FPGA by their mux ports
+ * The number of frames is a user-defined partition of the BRAM
  **********************************************************************/
 #define NOVENA_RF_REGS_PAGE_NO 0
 #define NOVENA_RF_REGS_PAGE_SIZE 256
@@ -77,14 +79,6 @@
 #define NOVENA_RF_DEFRAMER0_PAGE_NO 3
 #define NOVENA_RF_DEFRAMER0_PAGE_SIZE DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t)
 #define NOVENA_RF_DEFRAMER0_NUM_FRAMES 4
-
-enum NovenaRFDMANo
-{
-    NOVENA_RF_FRAMER0_MM2S,
-    NOVENA_RF_FRAMER0_S2MM,
-    NOVENA_RF_DEFRAMER0_MM2S,
-    NOVENA_RF_DEFRAMER0_S2MM,
-};
 
 /***********************************************************************
  * Utility functions

@@ -10,85 +10,138 @@
 #pragma once
 #include <cstdlib>
 #include <vector>
+#include <thread>
+#include <chrono>
+#include <atomic>
 
-enum NovenaDmaBuffState
+enum NovenaDmaDir
 {
-    NRF_DMA_BUFF_STATE_RELEASED, //engine owns it
-    NRF_DMA_BUFF_STATE_AVAILABLE, //table owns it
-    NRF_DMA_BUFF_STATE_ACQUIRED, //user owns it
+    NRF_DMA_DIR_S2MM,
+    NRF_DMA_DIR_MM2S
 };
 
 /*!
  * A helper class to keep track of DMA scatter/gather tables
  * for use in the S2MM and M2SS engines in the FPGA.
  */
-class NovenaDmaSgTable
+class NovenaDmaChannel
 {
 public:
 
-    NovenaDmaSgTable(void *mem, const size_t numBytes, const size_t numFrames):
+    NovenaDmaChannel(
+        const NovenaDmaDir dir,
+        void *regs,
+        const size_t statRegOff,
+        const size_t ctrlRegOff,
+        void *mem,
+        const size_t numBytes,
+        const size_t numFrames
+    ):
+        _dir(dir),
+        _statReg((uint16_t *)regs + (statRegOff/sizeof(uint16_t))),
+        _ctrlReg((uint16_t *)regs + (ctrlRegOff/sizeof(uint16_t))),
         _mem(mem),
         _numBytes(numBytes),
         _numFrames(numFrames),
-        _bytesPerFrame(numBytes/numFrames),
-        _states(numFrames),
+        _frameSize(numBytes/numFrames),
+        _released(numFrames),
         _lengths(numFrames),
         _headIndex(0),
         _tailIndex(0),
-        _numAcquired(0)
+        _numAcquired(numFrames),
+        _ignoreCount(0)
     {
-        return;
+        for (size_t i = 0; i < numFrames; i++)
+        {
+            if (_dir == NRF_DMA_DIR_S2MM) this->release(i, 0);
+            if (_dir == NRF_DMA_DIR_MM2S) _numAcquired--;
+        }
+
+        //dont really check fifo for first round of MM2S
+        if (_dir == NRF_DMA_DIR_MM2S) _ignoreCount = numFrames;
+    }
+
+    //! wait on the head frame, return true for ready, false for timeout
+    bool waitReady(const long timeoutUs)
+    {
+        //TODO need irq here .. cant sleep and check
+        auto exitTime = std::chrono::system_clock::now() + std::chrono::microseconds(timeoutUs);
+        while (((*_statReg) >> 15) == 0)
+        {
+            if (std::chrono::system_clock::now() > exitTime) return false;
+            std::this_thread::sleep_for(std::chrono::microseconds(1000));
+        }
+        return true;
     }
 
     //! acquire head frame, return index or -1 for fail
-    int acquireHead(size_t &length) const
+    int acquire(size_t &length)
     {
-        
+        if (_numAcquired == _numFrames) return -2; //user stole all the buffers, give them back
+
+        if (_ignoreCount == 0)
+        {
+            if (((*_statReg) >> 15) == 0) return -1; //not ready
+
+            //set the length - frame size or read stat fifo
+            if (_dir == NRF_DMA_DIR_S2MM) length = (*_statReg) & 0x7fff;
+            if (_dir == NRF_DMA_DIR_MM2S) length = _frameSize;
+
+            //write to the stat register causes pop
+            *_statReg = 0;
+        }
+        else _ignoreCount--;
+
+        int handle = _headIndex;
+        _released[handle] = false;
+        _headIndex = (_headIndex + 1) % _numFrames;
+        _numAcquired++;
+
+        return handle;
     }
 
-    //! the number of buffers available to acquire
-    size_t numAvailable(void) const
+    //! release buffer (out of order ok) to DMA engine
+    void release(const int handle, const size_t length)
     {
-        
+        _released[handle] = true;
+        _lengths[handle] = (_dir == NRF_DMA_DIR_S2MM)?_frameSize:length;
+        //determine the new tail (buffers may not be released in order)
+        do
+        {
+            if (not _released[_tailIndex]) break;
+            *_ctrlReg = this->bramOffset(_tailIndex);
+            //mm2s direction takes 2 writes, the last write is the end addr (exclusive)
+            uint16_t endAddr = this->bramOffset(_tailIndex)+_lengths[_tailIndex];
+            if (_dir == NRF_DMA_DIR_MM2S) *_ctrlReg = endAddr;
+            _tailIndex = (_tailIndex + 1) % _numFrames;
+        }
+        while (_numAcquired.fetch_sub(1) != 1);
     }
 
-    //! mark the specified frame completed
-    void markReleased(const size_t frameNum)
+    //! offset into mapped memory for user
+    void *buffer(const int handle) const
     {
-        
+        return ((char *)_mem) + this->bramOffset(handle);
     }
 
-    //! make the tail frame completed/available
-    void markTailAvailable(const size_t length)
+    //! block ram offset used for ctrl
+    size_t bramOffset(const size_t handle) const
     {
-        
-    }
-
-    //! offset into mapped memory
-    void *buffFromFrameNum(const size_t frameNum) const
-    {
-        return ((char *)_mem) + this->offsetFromFrameNum(frameNum);
-    }
-
-    //! block ram offset used for sg cmd
-    size_t offsetFromFrameNum(const size_t frameNum) const
-    {
-        return _bytesPerFrame*frameNum;
-    }
-
-    size_t bytesPerFrame(void) const
-    {
-        return _bytesPerFrame;
+        return _frameSize*handle;
     }
 
 private:
+    const NovenaDmaDir _dir;
+    volatile uint16_t *_statReg;
+    volatile uint16_t *_ctrlReg;
     void *_mem;
     size_t _numBytes;
     size_t _numFrames;
-    size_t _bytesPerFrame;
-    std::vector<NovenaDmaBuffState> _states;
+    size_t _frameSize;
+    std::vector<bool> _released;
     std::vector<size_t> _lengths;
     size_t _headIndex;
     size_t _tailIndex;
-    size_t _numAcquired;
+    std::atomic<size_t> _numAcquired;
+    size_t _ignoreCount;
 };

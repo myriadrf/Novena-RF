@@ -298,12 +298,16 @@ begin
                 reg_data_rd <= if_time_rd(63 downto 48);
             elsif (addr_num = REG_S2MM_FRAMER0_STAT_ADDR) then
                 reg_data_rd <= s2mm_framer0_stat_data;
+                reg_data_rd(15) <= s2mm_framer0_stat_valid;
             elsif (addr_num = REG_MM2s_FRAMER0_STAT_ADDR) then
                 reg_data_rd <= mm2s_framer0_stat_data;
+                reg_data_rd(15) <= mm2s_framer0_stat_valid;
             elsif (addr_num = REG_S2MM_DEFRAMER0_STAT_ADDR) then
                 reg_data_rd <= s2mm_deframer0_stat_data;
+                reg_data_rd(15) <= s2mm_deframer0_stat_valid;
             elsif (addr_num = REG_MM2S_DEFRAMER0_STAT_ADDR) then
                 reg_data_rd <= mm2s_deframer0_stat_data;
+                reg_data_rd(15) <= mm2s_deframer0_stat_valid;
             elsif (addr_num = REG_DMA_FIFO_RDY_CTRL_ADDR) then
                 reg_data_rd(0) <= s2mm_framer0_ctrl_ready;
                 reg_data_rd(1) <= s2mm_framer0_stat_valid;

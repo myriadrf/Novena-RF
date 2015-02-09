@@ -16,8 +16,11 @@ use ieee.numeric_std.all;
 
 entity dma_mm2s is
     generic(
-        --number of 16 bit words
-        MEM_SIZE           : positive
+        --number of 32 bit words in the DMA block
+        MEM_SIZE : positive;
+
+        --the max depth of the control/status fifos
+        CTRL_DEPTH : positive := 16
     );
     port (
         --clocks and resets
@@ -110,7 +113,7 @@ begin
     --------------------------------------------------------------------
     ctrl_fifo : entity work.StreamFifoXClk
     generic map (
-        MEM_SIZE => 16,
+        MEM_SIZE => CTRL_DEPTH,
         SYNC_READ => false
     )
     port map (
@@ -133,7 +136,7 @@ begin
     --------------------------------------------------------------------
     stat_fifo : entity work.StreamFifoXClk
     generic map (
-        MEM_SIZE => 16,
+        MEM_SIZE => CTRL_DEPTH,
         SYNC_READ => false
     )
     port map (

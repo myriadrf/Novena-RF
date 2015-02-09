@@ -21,8 +21,6 @@
 #include <cstdio>
 #include <cerrno>
 #include <memory>
-#include <chrono>
-#include <thread>
 
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -135,6 +133,8 @@ public:
 
         //store the hash in the loopback
         this->writeRegister(REG_LOOPBACK_ADDR, imageHash);
+
+        this->initDMAChannels();
     }
 
     /*******************************************************************
@@ -184,103 +184,23 @@ public:
     }
 
     /*******************************************************************
-     * Scatter/gather DMA controls
-     * All lengths are specified in bytes.
-     * Acquire calls return handles used in the release call,
-     * or a negative number when the call fails or timeout.
+     * Initialize DMA channels
      ******************************************************************/
-    void initDMA(void)
+    void initDMAChannels(void)
     {
-        //create instruction table for predefined memory offsets
-        _dmaSgTables.resize(4);
-        _dmaSgTables[NOVENA_RF_FRAMER0_MM2S] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_framer0_mem, FRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
-        _dmaSgTables[NOVENA_RF_FRAMER0_S2MM] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_framer0_mem, FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
-        _dmaSgTables[NOVENA_RF_DEFRAMER0_MM2S] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
-        _dmaSgTables[NOVENA_RF_DEFRAMER0_S2MM] = std::unique_ptr<NovenaDmaSgTable>(new NovenaDmaSgTable(_deframer0_mem, DEFRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
-
-        //s2mm engines need to be prepped with instructions
-
-        //mm2s engines are marked as ready to be used
+        _framer0_rxd_chan.reset(new NovenaDmaChannel(
+            NRF_DMA_DIR_S2MM, _regs, REG_S2MM_FRAMER0_STAT_ADDR, REG_S2MM_FRAMER0_CTRL_ADDR,
+            _framer0_mem, FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
+        _framer0_ctrl_chan.reset(new NovenaDmaChannel(
+            NRF_DMA_DIR_MM2S, _regs, REG_MM2S_FRAMER0_STAT_ADDR, REG_MM2S_FRAMER0_CTRL_ADDR,
+            _framer0_mem, FRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
+        _deframer0_stat_chan.reset(new NovenaDmaChannel(
+            NRF_DMA_DIR_S2MM, _regs, REG_S2MM_DEFRAMER0_STAT_ADDR, REG_S2MM_DEFRAMER0_CTRL_ADDR,
+            _deframer0_mem, DEFRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
+        _deframer0_txd_chan.reset(new NovenaDmaChannel(
+            NRF_DMA_DIR_MM2S, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
+            _deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
     }
-
-    int acquireDMA(const NovenaRFDMANo which, size_t &length, const long timeoutUs)
-    {
-        auto &table = *_dmaSgTables[size_t(which)];
-        auto exitTime = std::chrono::system_clock::now() + std::chrono::microseconds(timeoutUs);
-        while (true)
-        {
-            this->_checkAndUpdateDMAState(which);
-            if (table.numAvailable() > 0) break;
-            //TODO need irq here
-            std::this_thread::sleep_for(std::chrono::microseconds(1000));
-            if (std::chrono::system_clock::now() > exitTime) return -1;
-        }
-        return table.acquireHead(length);
-    }
-
-    void releaseDMA(const NovenaRFDMANo which, const int handle, const size_t length)
-    {
-        auto &table = *_dmaSgTables[size_t(which)];
-        table.markReleased(handle);
-        switch(which)
-        {
-        case NOVENA_RF_FRAMER0_MM2S:
-            this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
-            this->writeRegister(REG_MM2S_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)+length); //end addr (exclusive)
-            break;
-        case NOVENA_RF_FRAMER0_S2MM:
-            this->writeRegister(REG_S2MM_FRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
-            break;
-        case NOVENA_RF_DEFRAMER0_MM2S:
-            this->writeRegister(REG_MM2S_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
-            this->writeRegister(REG_MM2S_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)+length); //end addr (exclusive)
-            break;
-        case NOVENA_RF_DEFRAMER0_S2MM:
-            this->writeRegister(REG_S2MM_DEFRAMER0_CTRL_ADDR, table.offsetFromFrameNum(handle)); //start addr
-            break;
-        }
-    }
-
-    void *bufferDMA(const NovenaRFDMANo which, const int handle)
-    {
-        auto &table = *_dmaSgTables[size_t(which)];
-        return table.buffFromFrameNum(handle);
-    }
-
-    void _checkAndUpdateDMAState(const NovenaRFDMANo which)
-    {
-        auto &table = *_dmaSgTables[size_t(which)];
-        //handle status fifos to make buffers available
-        while (true)
-        {
-            int readies = this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR);
-            switch(which)
-            {
-            case NOVENA_RF_FRAMER0_MM2S:
-                if (((readies >> 3) & 0x1) == 0) return;
-                table.markTailAvailable(table.bytesPerFrame());
-                this->writeRegister(REG_MM2S_FRAMER0_STAT_ADDR, 0); //pop
-                break;
-            case NOVENA_RF_FRAMER0_S2MM:
-                if (((readies >> 1) & 0x1) == 0) return;
-                table.markTailAvailable(this->readRegister(REG_S2MM_FRAMER0_STAT_ADDR));
-                this->writeRegister(REG_S2MM_FRAMER0_STAT_ADDR, 0); //pop
-                break;
-            case NOVENA_RF_DEFRAMER0_MM2S:
-                if (((readies >> 7) & 0x1) == 0) return;
-                table.markTailAvailable(table.bytesPerFrame());
-                this->writeRegister(REG_MM2S_DEFRAMER0_STAT_ADDR, 0); //pop
-                break;
-            case NOVENA_RF_DEFRAMER0_S2MM:
-                if (((readies >> 5) & 0x1) == 0) return;
-                table.markTailAvailable(this->readRegister(REG_S2MM_DEFRAMER0_STAT_ADDR));
-                this->writeRegister(REG_S2MM_DEFRAMER0_STAT_ADDR, 0); //pop
-                break;
-            }
-        }
-    }
-
-    std::vector<std::unique_ptr<NovenaDmaSgTable>> _dmaSgTables;
 
     /*******************************************************************
      * Identification API
@@ -435,6 +355,10 @@ private:
     void *_regs; //mapped register space
     void *_framer0_mem; //mapped RX DMA and RX control
     void *_deframer0_mem; //mapped TX DMA and TX status
+    std::unique_ptr<NovenaDmaChannel> _framer0_ctrl_chan;
+    std::unique_ptr<NovenaDmaChannel> _framer0_rxd_chan;
+    std::unique_ptr<NovenaDmaChannel> _deframer0_stat_chan;
+    std::unique_ptr<NovenaDmaChannel> _deframer0_txd_chan;
 };
 
 /***********************************************************************
