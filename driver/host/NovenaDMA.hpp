@@ -64,6 +64,8 @@ public:
     //! wait on the head frame, return true for ready, false for timeout
     bool waitReady(const long timeoutUs)
     {
+        if (_ignoreCount != 0) return true;
+
         //TODO need irq here .. cant sleep and check
         auto exitTime = std::chrono::system_clock::now() + std::chrono::microseconds(timeoutUs);
         while (((*_statReg) >> 15) == 0)
