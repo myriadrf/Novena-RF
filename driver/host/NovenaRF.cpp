@@ -215,9 +215,9 @@ public:
             1024/*frame size*/, 10/*burst size*/);
         SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
         _framer0_ctrl_chan->release(ctrlHandle, length);
+
         bool rdy = _framer0_rxd_chan->waitReady(100000);
         SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x, waitReady=%d\n", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR), rdy);
-
         int rxdHandle = _framer0_rxd_chan->acquire(length);
         SoapySDR::logf(SOAPY_SDR_TRACE, "rxdHandle %d", rxdHandle);
         SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
@@ -253,6 +253,48 @@ public:
         SoapySDR::logf(SOAPY_SDR_TRACE, "isBurst %d", isBurst);
         SoapySDR::logf(SOAPY_SDR_TRACE, "burstEnd %d", burstEnd);
 
+        //quick deframer test
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        int txdHandle = _deframer0_txd_chan->acquire(length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "txdHandle %d", txdHandle);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
+        twbw_deframer_data_packer(
+            _deframer0_txd_chan->buffer(txdHandle), length,
+            sizeof(uint32_t), 10/*numsamps*/,
+            0x12 /*tag*/, false, 0, true/*burst end*/);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        _deframer0_txd_chan->release(txdHandle, length);
+
+        rdy = _deframer0_stat_chan->waitReady(100000);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x, waitReady=%d\n", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR), rdy);
+        int statHandle = _deframer0_stat_chan->acquire(length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "statHandle %d", statHandle);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
+        //size_t numSamps;
+        bool underflow;
+        //int idTag;
+        //bool hasTime;
+        //long long timeTicks;
+        //bool timeError;
+        //bool burstEnd;
+        twbw_deframer_stat_unpacker(
+            _deframer0_stat_chan->buffer(statHandle), length,
+            underflow,
+            idTag,
+            hasTime,
+            timeTicks,
+            timeError,
+            burstEnd
+        );
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        _deframer0_stat_chan->release(statHandle, length);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
+        SoapySDR::logf(SOAPY_SDR_TRACE, "underflow %d", underflow);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "idTag 0x%0x", idTag);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "hasTime %d", hasTime);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "timeTicks %d", timeTicks);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "timeError %d", timeError);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "burstEnd %d", burstEnd);
     }
 
     /*******************************************************************

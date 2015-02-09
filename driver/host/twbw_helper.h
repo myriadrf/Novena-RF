@@ -97,9 +97,83 @@ static inline void twbw_framer_data_unpacker(
 
     burstEnd = false;
     overflow = (frameSize != numSamps);
-    if (isBurst and burstCount == numSamps)
+    if (isBurst && burstCount == numSamps)
     {
         burstEnd = true;
         overflow = false;
     }
+}
+
+/*!
+ * Load an outgoing data packet.
+ * \param buff the pointer to frame start
+ * \param [out] length the packet length in bytes
+ * \param width the transfer size in bytes (4, 8, ...)
+ * \param numSamps the number of samples in this packet
+ * \param idTag 8-bit ID tag forwarded to data header
+ * \param hasTime true when timeTicks is valid
+ * \param timeTicks 64-bit tick count for stream start time
+ * \param burstEnd true when this packet ends a burst
+ */
+static inline void twbw_deframer_data_packer(
+    void *buff,
+    size_t &length,
+    const size_t width,
+    const size_t numSamps,
+    const int idTag,
+    const bool hasTime,
+    const long long timeTicks,
+    const bool burstEnd
+)
+{
+    uint32_t *hdr = (uint32_t *)buff;
+    //supports variable width header unpacking, only lower32 bits
+    uint32_t &word0 = hdr[0*(width/sizeof(uint32_t))];
+    uint32_t &word1 = hdr[1*(width/sizeof(uint32_t))];
+    uint32_t &word2 = hdr[2*(width/sizeof(uint32_t))];
+    uint32_t &word3 = hdr[3*(width/sizeof(uint32_t))];
+
+    word0 = ((idTag & 0xff) << 16);
+    if (hasTime) word0 |= (1 << 31);
+    if (!burstEnd) word0 |= (1 << 27);
+    word1 = 0;
+    word2 = timeTicks >> 32;
+    word3 = timeTicks & 0xffffffff;
+
+    length = width*(4 + numSamps);
+}
+
+/*!
+ * Parse an incoming status message.
+ * \param buff the pointer to frame start
+ * \param length the frame in bytes
+ * \param [out] underflow true when the deframer experiences an underflow
+ * \param [out] idTag 8-bit ID tag forwarded from the control msg
+ * \param [out] hasTime true when this packet starts a timed burst
+ * \param [out] timeTicks 64-bit tick count which is always valid
+ * \param [out] timeError true when a time error occurs
+ * \param [out] burstEnd true when this packet ends a burst
+ */
+static inline void twbw_deframer_stat_unpacker(
+    void *buff,
+    const size_t,
+    bool &underflow,
+    int &idTag,
+    bool &hasTime,
+    long long &timeTicks,
+    bool &timeError,
+    bool &burstEnd
+)
+{
+    const uint32_t *msg = (const uint32_t *)buff;
+
+    //extract header flags
+    hasTime = ((msg[0] >> 31) & 0x1) != 0;
+    timeError = ((msg[0] >> 30) & 0x1) != 0;
+    underflow = ((msg[0] >> 29) & 0x1) != 0;
+    burstEnd = ((msg[0] >> 28) & 0x1) != 0;
+    idTag = (msg[0] >> 16) & 0xff;
+
+    //gather time even if its not valid
+    timeTicks = (((long long)msg[2]) << 32) | msg[3];
 }
