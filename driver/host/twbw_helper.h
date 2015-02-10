@@ -49,6 +49,7 @@ static inline void twbw_framer_ctrl_packer(
  * \param buff the pointer to frame start
  * \param length the transfer length in bytes
  * \param width the transfer size in bytes (4, 8, ...)
+ * \param [out] payload the start of the payload (offset from header)
  * \param [out] numSamps the number of samples in this packet
  * \param [out] overflow true when this packet was in an overflow
  * \param [out] idTag 8-bit ID tag forwarded from the control msg
@@ -62,6 +63,7 @@ static inline void twbw_framer_data_unpacker(
     const void *buff,
     const size_t length,
     const size_t width,
+    const void *&payload,
     size_t &numSamps,
     bool &overflow,
     int &idTag,
@@ -80,6 +82,7 @@ static inline void twbw_framer_data_unpacker(
     const uint32_t word3 = hdr[3*(width/sizeof(uint32_t))];
 
     //first 4 transfers are part of the header
+    payload = (const void *)&hdr[4*(width/sizeof(uint32_t))];
     numSamps = (length/width) - 4;
 
     //extract header flags
@@ -109,6 +112,7 @@ static inline void twbw_framer_data_unpacker(
  * \param buff the pointer to frame start
  * \param [out] length the packet length in bytes
  * \param width the transfer size in bytes (4, 8, ...)
+ * \param [out] payload the start of the payload (offset from header)
  * \param numSamps the number of samples in this packet
  * \param idTag 8-bit ID tag forwarded to data header
  * \param hasTime true when timeTicks is valid
@@ -119,6 +123,7 @@ static inline void twbw_deframer_data_packer(
     void *buff,
     size_t &length,
     const size_t width,
+    void *&payload,
     const size_t numSamps,
     const int idTag,
     const bool hasTime,
@@ -132,6 +137,7 @@ static inline void twbw_deframer_data_packer(
     uint32_t &word1 = hdr[1*(width/sizeof(uint32_t))];
     uint32_t &word2 = hdr[2*(width/sizeof(uint32_t))];
     uint32_t &word3 = hdr[3*(width/sizeof(uint32_t))];
+    payload = (void *)&hdr[4*(width/sizeof(uint32_t))];
 
     word0 = ((idTag & 0xff) << 16);
     if (hasTime) word0 |= (1 << 31);

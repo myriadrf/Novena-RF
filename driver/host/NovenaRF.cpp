@@ -222,6 +222,7 @@ public:
         SoapySDR::logf(SOAPY_SDR_TRACE, "rxdHandle %d", rxdHandle);
         SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
         SoapySDR::logf(SOAPY_SDR_TRACE, "line0 0x%x", ((uint32_t *)_framer0_rxd_chan->buffer(rxdHandle))[0]);
+        const void *payloadrx;
         size_t numSamps;
         bool overflow;
         int idTag;
@@ -232,6 +233,7 @@ public:
         bool burstEnd;
         twbw_framer_data_unpacker(
             _framer0_rxd_chan->buffer(rxdHandle), length, sizeof(uint32_t),
+            payloadrx,
             numSamps,
             overflow,
             idTag,
@@ -258,9 +260,10 @@ public:
         int txdHandle = _deframer0_txd_chan->acquire(length);
         SoapySDR::logf(SOAPY_SDR_TRACE, "txdHandle %d", txdHandle);
         SoapySDR::logf(SOAPY_SDR_TRACE, "length %d", length);
+        void *payload;
         twbw_deframer_data_packer(
             _deframer0_txd_chan->buffer(txdHandle), length,
-            sizeof(uint32_t), 10/*numsamps*/,
+            sizeof(uint32_t), payload, 10/*numsamps*/,
             0x12 /*tag*/, false, 0, true/*burst end*/);
         SoapySDR::logf(SOAPY_SDR_TRACE, "readies 0x%x", this->readRegister(REG_DMA_FIFO_RDY_CTRL_ADDR));
         _deframer0_txd_chan->release(txdHandle, length);
