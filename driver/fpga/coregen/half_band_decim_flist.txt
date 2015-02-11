@@ -1,0 +1,20 @@
+# Output products list for <half_band_decim>
+_xmsgs/pn_parser.xmsgs
+demo_tb/tb_half_band_decim.vhd
+half_band_decim/cmodel/fir_compiler_v6_3_bitacc_cmodel_lin.zip
+half_band_decim/cmodel/fir_compiler_v6_3_bitacc_cmodel_lin64.zip
+half_band_decim/cmodel/fir_compiler_v6_3_bitacc_cmodel_nt.zip
+half_band_decim/cmodel/fir_compiler_v6_3_bitacc_cmodel_nt64.zip
+half_band_decim/doc/ds795_fir_compiler.pdf
+half_band_decim/doc/fir_compiler_v6_3_readme.txt
+half_band_decim/doc/fir_compiler_v6_3_vinfo.html
+half_band_decim.asy
+half_band_decim.gise
+half_band_decim.mif
+half_band_decim.ngc
+half_band_decim.vhd
+half_band_decim.vho
+half_band_decim.xco
+half_band_decim.xise
+half_band_decim_flist.txt
+half_band_decim_xmdf.tcl

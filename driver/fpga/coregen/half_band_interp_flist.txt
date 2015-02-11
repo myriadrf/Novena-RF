@@ -1,0 +1,20 @@
+# Output products list for <half_band_interp>
+_xmsgs/pn_parser.xmsgs
+demo_tb/tb_half_band_interp.vhd
+half_band_interp/cmodel/fir_compiler_v6_3_bitacc_cmodel_lin.zip
+half_band_interp/cmodel/fir_compiler_v6_3_bitacc_cmodel_lin64.zip
+half_band_interp/cmodel/fir_compiler_v6_3_bitacc_cmodel_nt.zip
+half_band_interp/cmodel/fir_compiler_v6_3_bitacc_cmodel_nt64.zip
+half_band_interp/doc/ds795_fir_compiler.pdf
+half_band_interp/doc/fir_compiler_v6_3_readme.txt
+half_band_interp/doc/fir_compiler_v6_3_vinfo.html
+half_band_interp.asy
+half_band_interp.gise
+half_band_interp.mif
+half_band_interp.ngc
+half_band_interp.vhd
+half_band_interp.vho
+half_band_interp.xco
+half_band_interp.xise
+half_band_interp_flist.txt
+half_band_interp_xmdf.tcl

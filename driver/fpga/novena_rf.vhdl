@@ -204,10 +204,19 @@ architecture rtl of novena_rf is
     --adc and dac signals
     signal lms_clk : std_logic;
     signal lms_rst : std_logic;
+
     signal adc_data : std_logic_vector(31 downto 0);
-    signal dac_data : std_logic_vector(31 downto 0);
     signal adc_valid : std_logic;
+
+    signal decim_data : std_logic_vector(31 downto 0);
+    signal decim_valid : std_logic;
+
+    signal dac_data : std_logic_vector(31 downto 0);
     signal dac_ready : std_logic;
+
+    signal interp_data : std_logic_vector(31 downto 0);
+    signal interp_ready : std_logic;
+
     signal adc_active : boolean;
     signal dac_active : boolean;
 
@@ -486,8 +495,8 @@ begin
         clk => lms_clk,
         rst => lms_rst,
         in_time => if_time,
-        adc_tdata => adc_data,
-        adc_tvalid => adc_valid,
+        adc_tdata => decim_data,
+        adc_tvalid => decim_valid,
         out_tdata => framer0_rxd_data,
         out_tuser => open,
         out_tlast => framer0_rxd_last,
@@ -498,6 +507,23 @@ begin
         ctrl_tready => framer0_ctrl_ready,
         ctrl_tvalid => framer0_ctrl_valid,
         adc_active => adc_active
+    );
+
+    decim_chain: entity work.hb_filter_chain
+    generic map (
+        NUM_FILTERS => 4,
+        MODE => "decim"
+    )
+    port map (
+        clk => lms_clk,
+        rst => lms_rst,
+        bypass => "0000",
+        in_tdata => adc_data,
+        in_tvalid => adc_valid,
+        in_tready => open, --RXD interface ignores
+        out_tdata => decim_data,
+        out_tvalid => decim_valid,
+        out_tready => '1' --framer is always ready
     );
 
     --------------------------------------------------------------------
@@ -511,8 +537,8 @@ begin
         clk => lms_clk,
         rst => lms_rst,
         in_time => if_time,
-        dac_tdata => dac_data,
-        dac_tready => dac_ready,
+        dac_tdata => interp_data,
+        dac_tready => interp_ready,
         in_tdata => deframer0_txd_data,
         in_tuser => "0", --not used
         in_tlast => deframer0_txd_last,
@@ -523,6 +549,23 @@ begin
         stat_tready => deframer0_txd_ready,
         stat_tvalid => deframer0_stat_valid,
         dac_active => dac_active
+    );
+
+    interp_chain: entity work.hb_filter_chain
+    generic map (
+        NUM_FILTERS => 4,
+        MODE => "interp"
+    )
+    port map (
+        clk => lms_clk,
+        rst => lms_rst,
+        bypass => "0000",
+        in_tdata => interp_data,
+        in_tvalid => '1', --deframer always valid
+        in_tready => interp_ready,
+        out_tdata => dac_data,
+        out_tvalid => open, --TXD interface ignores
+        out_tready => dac_ready
     );
 
     FPGA_LED2 <= '1' when (dac_active or adc_active) else '0';
