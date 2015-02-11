@@ -5,6 +5,10 @@
 --  * Select sample rate with bypasses selection.
 --  * Configurable number of filters in chain.
 --
+-- TODO we have generated a single 11-tap interp and decim FIR filter
+-- for all filters in the chain. This is not the best use of resources:
+-- filters at lower rates can have more taps and more cycles.
+--
 -- Copyright (c) 2015-2015 Lime Microsystems
 -- Copyright (c) 2015-2015 Andrew "bunnie" Huang
 -- SPDX-License-Identifier: Apache-2.0
@@ -31,6 +35,8 @@ entity hb_filter_chain is
         rst : in std_logic;
 
         --configuration bypasses (1 = bypass, 0 = half-band)
+        --index 0 = closest to the input
+        --index N-1 = closest to the output
         bypass : in std_logic_vector(NUM_FILTERS-1 downto 0);
 
         -- input bus interface

@@ -17,6 +17,9 @@ entity lms_trx is
     port(
         lms_clk : in std_logic;
 
+        --loopback tx data into rx
+        loopback : in std_logic := '0';
+
         --external
         TXIQSEL : out std_logic;
         TXD : out std_logic_vector(11 downto 0);
@@ -66,6 +69,11 @@ begin
         adc_data(19 downto 16) <= "0000";
         adc_data(15 downto 4) <= rxd_r;
         adc_data(3 downto 0) <= "0000";
+        if (loopback = '1') then
+            adc_valid_int <= txiqsel_r;
+            rxd_r_prev <= txd_r;
+            adc_data(15 downto 4) <= txd_r;
+        end if;
     end if;
     end process;
 

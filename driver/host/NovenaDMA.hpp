@@ -71,7 +71,7 @@ public:
         while (((*_statReg) >> 15) == 0)
         {
             if (std::chrono::system_clock::now() > exitTime) return false;
-            std::this_thread::sleep_for(std::chrono::microseconds(1000));
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
         return true;
     }
@@ -81,13 +81,13 @@ public:
     {
         if (_numAcquired == _numFrames) return -2; //user stole all the buffers, give them back
 
+        length = _frameSize;
         if (_ignoreCount == 0)
         {
             if (((*_statReg) >> 15) == 0) return -1; //not ready
 
-            //set the length - frame size or read stat fifo
-            if (_dir == NRF_DMA_DIR_S2MM) length = (*_statReg) & 0x7fff;
-            if (_dir == NRF_DMA_DIR_MM2S) length = _frameSize;
+            //stat fifo tells us the end address, subtract to get the length
+            if (_dir == NRF_DMA_DIR_S2MM) length = ((*_statReg) & 0x7fff)-this->bramOffset(_headIndex);
 
             //write to the stat register causes pop
             *_statReg = 0;
@@ -130,6 +130,12 @@ public:
     size_t bramOffset(const size_t handle) const
     {
         return _frameSize*handle;
+    }
+
+    //! frame size in bytes
+    size_t frameSize(void) const
+    {
+        return _frameSize;
     }
 
 private:

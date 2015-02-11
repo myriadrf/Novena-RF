@@ -126,6 +126,7 @@ module novena_eim(
         end
     end
 
+/*
     wire [35:0] CONTROL_ILA;
     reg [63:0] DATA_ILA;
     reg [7:0] TRIG_ILA;
@@ -152,6 +153,7 @@ module novena_eim(
         DATA_ILA[62] <= rw_in;
         DATA_ILA[63] <= adv_in;
     end
+*/
 
   //////////////
   // Output pipeline registers -- explicit instantiation as their LOCs are controlled in the UCF.

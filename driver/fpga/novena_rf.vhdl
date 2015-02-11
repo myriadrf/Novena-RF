@@ -101,6 +101,12 @@ architecture rtl of novena_rf is
     --read-only register to query the FIFO readiness
     constant REG_DMA_FIFO_RDY_CTRL_ADDR : natural := 48;
 
+    --filter bypasses for configurable sample rate
+    constant REG_DECIM_FILTER_BYPASS : natural := 54;
+    constant REG_INTERP_FILTER_BYPASS : natural := 56;
+    constant REG_LMS_TRX_LOOPBACK : natural := 58;
+
+    constant NUM_FILTERS : positive := 4;
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
     constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024;
     constant FRAMER0_S2MM_NUM_ENTRIES : positive := 4096;
@@ -204,23 +210,26 @@ architecture rtl of novena_rf is
     --adc and dac signals
     signal lms_clk : std_logic;
     signal lms_rst : std_logic;
-
     signal adc_data : std_logic_vector(31 downto 0);
     signal adc_valid : std_logic;
-
     signal decim_data : std_logic_vector(31 downto 0);
     signal decim_valid : std_logic;
-
     signal dac_data : std_logic_vector(31 downto 0);
     signal dac_ready : std_logic;
-
     signal interp_data : std_logic_vector(31 downto 0);
     signal interp_ready : std_logic;
-
     signal adc_active : boolean;
     signal dac_active : boolean;
+    signal lms_trx_loopback : std_logic;
+    signal decim_chain_bypass : std_logic_vector(NUM_FILTERS-1 downto 0);
+    signal interp_chain_bypass : std_logic_vector(NUM_FILTERS-1 downto 0);
 
     signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
+
+    --ila debug
+    signal CONTROL_ILA : std_logic_vector(35 downto 0);
+    signal DATA_ILA : std_logic_vector(63 downto 0);
+    signal TRIG_ILA : std_logic_vector(7 downto 0);
 begin
 
     --------------------------------------------------------------------
@@ -285,6 +294,12 @@ begin
                 elsif (addr_num = REG_TIME_CTRL_ADDR) then
                     if_time_reg_out <= reg_data_wr(0) = '1';
                     if_time_reg_in <= reg_data_wr(1) = '1';
+                elsif (addr_num = REG_DECIM_FILTER_BYPASS) then
+                    decim_chain_bypass <= reg_data_wr(NUM_FILTERS-1 downto 0);
+                elsif (addr_num = REG_INTERP_FILTER_BYPASS) then
+                    interp_chain_bypass <= reg_data_wr(NUM_FILTERS-1 downto 0);
+                elsif (addr_num = REG_LMS_TRX_LOOPBACK) then
+                    lms_trx_loopback <= reg_data_wr(0);
                 end if;
             end if;
         end if;
@@ -511,13 +526,13 @@ begin
 
     decim_chain: entity work.hb_filter_chain
     generic map (
-        NUM_FILTERS => 4,
+        NUM_FILTERS => NUM_FILTERS,
         MODE => "decim"
     )
     port map (
         clk => lms_clk,
         rst => lms_rst,
-        bypass => "0000",
+        bypass => decim_chain_bypass,
         in_tdata => adc_data,
         in_tvalid => adc_valid,
         in_tready => open, --RXD interface ignores
@@ -525,6 +540,28 @@ begin
         out_tvalid => decim_valid,
         out_tready => '1' --framer is always ready
     );
+
+    my_icon: entity work.chipscope_icon
+    port map (
+        CONTROL0 => CONTROL_ILA
+    );
+    my_ila: entity work.chipscope_ila
+    port map (
+        CLK => lms_clk,
+        CONTROL => CONTROL_ILA,
+        TRIG0 => TRIG_ILA,
+        DATA => DATA_ILA
+    );
+
+    TRIG_ILA(0) <= adc_valid;
+    TRIG_ILA(1) <= decim_valid;
+    TRIG_ILA(2) <= dac_ready;
+    TRIG_ILA(3) <= interp_ready;
+
+    DATA_ILA(0) <= adc_valid;
+    DATA_ILA(1) <= decim_valid;
+    DATA_ILA(2) <= dac_ready;
+    DATA_ILA(3) <= interp_ready;
 
     --------------------------------------------------------------------
     -- TX deframer
@@ -553,13 +590,13 @@ begin
 
     interp_chain: entity work.hb_filter_chain
     generic map (
-        NUM_FILTERS => 4,
+        NUM_FILTERS => NUM_FILTERS,
         MODE => "interp"
     )
     port map (
         clk => lms_clk,
         rst => lms_rst,
-        bypass => "0000",
+        bypass => interp_chain_bypass,
         in_tdata => interp_data,
         in_tvalid => '1', --deframer always valid
         in_tready => interp_ready,
@@ -590,6 +627,7 @@ begin
     lms_trx: entity work.lms_trx
     port map (
         lms_clk => lms_clk,
+        loopback => lms_trx_loopback,
         TXD => TXD,
         TXIQSEL => TXIQSEL,
         RXD => RXD,

@@ -53,6 +53,12 @@
 //--read-only register to query the FIFO readiness
 #define REG_DMA_FIFO_RDY_CTRL_ADDR 48
 
+//filter bypasses for configurable sample rate
+#define REG_DECIM_FILTER_BYPASS 54
+#define REG_INTERP_FILTER_BYPASS 56
+#define REG_LMS_TRX_LOOPBACK 58
+
+#define NUM_FILTERS 4
 #define TEST0_BRAM_NUM_ENTRIES 16
 #define FRAMER0_FIFO_NUM_ENTRIES 1024
 #define FRAMER0_S2MM_NUM_ENTRIES 4096
