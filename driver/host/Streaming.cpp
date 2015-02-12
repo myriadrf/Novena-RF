@@ -28,54 +28,58 @@ void NovenaRF::initDMAChannels(void)
         NRF_DMA_DIR_MM2S, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
         _deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
 
-
     this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
+}
 
-    /*
-    this->writeRegister(REG_INTERP_FILTER_BYPASS, ~0x1); //all bypass - full rate
-    this->writeRegister(REG_DECIM_FILTER_BYPASS, ~0x1); //all bypass - full rate
-    this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
-    sleep(1);
-
-    void *handle = this->setupStream(SOAPY_SDR_RX, "CS16", std::vector<size_t>(1, 0), SoapySDR::Kwargs());
-    this->activateStream((SoapySDR::Stream *)handle, 0, 0, 0);
-    void *buffs[1];
-    uint32_t buff[1024];
-    buffs[0] = buff;
-    int flags = 0;
-    long long timeNs = 0;
-    for (int i = 0; i < 100; i++)
+/*******************************************************************
+ * Conversions
+ ******************************************************************/
+void convert_cs16_to_word32(const void *inp, void *outp, const size_t n)
+{
+    uint32_t *out = (uint32_t *)outp;
+    const std::complex<const int16_t> *in = (const std::complex<const int16_t> *)inp;
+    for (size_t i = 0; i < n; i++)
     {
-        int ret = this->readStream((SoapySDR::Stream *)handle, buffs, 1024, flags, timeNs, 1e6);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
+        uint16_t i16 = in[i].real();
+        uint16_t q16 = in[i].imag();
+        out[i] = (uint32_t(i16) << 16) | q16;
     }
-    //*/
-    /*
-    this->writeRegister(REG_INTERP_FILTER_BYPASS, 0x0); //no bypass
-    this->writeRegister(REG_DECIM_FILTER_BYPASS, 0x0); //no bypass
-    this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
-    this->setSampleRate(SOAPY_SDR_TX, 0, 61.44e6/4./2./2./2./2.);
-    sleep(1);
+}
 
-    void *handle = this->setupStream(SOAPY_SDR_TX, "CS16", std::vector<size_t>(1, 0), SoapySDR::Kwargs());
-    void *buffs[1];
-    uint32_t buff[1024];
-    buffs[0] = buff;
-    for (size_t j = 0; j < 1024; j++) buff[j] = 0xA100B200;
-    int flags = 0;//SOAPY_SDR_END_BURST;
-    long long timeNs = 0;
-    int x = 0;
-    while (1)
+void convert_cf32_to_word32(const void *inp, void *outp, const size_t n)
+{
+    uint32_t *out = (uint32_t *)outp;
+    const std::complex<const float> *in = (const std::complex<const float> *)inp;
+    for (size_t i = 0; i < n; i++)
     {
-        for (size_t j = 0; j < 1000; j++)
-        {
-            buff[j] = (x << 16) | (x & 0xffff);
-            x++;
-        }
-        int ret = this->writeStream((SoapySDR::Stream *)handle, buffs, 1000, flags, timeNs, 1e6);
-        //SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
+        uint16_t i16 = int16_t(in[i].real()*30e3f);
+        uint16_t q16 = int16_t(in[i].imag()*30e3f);
+        out[i] = (uint32_t(i16) << 16) | q16;
     }
-    //*/
+}
+
+void convert_word32_to_cs16(const void *inp, void *outp, const size_t n)
+{
+    const uint32_t *in = (const uint32_t *)inp;
+    std::complex<int16_t> *out = (std::complex<int16_t> *)outp;
+    for (size_t i = 0; i < n; i++)
+    {
+        int16_t i16 = uint16_t(in[i] >> 16);
+        int16_t q16 = uint16_t(in[i] & 0xffff);
+        out[i] = std::complex<int16_t>(i16, q16);
+    }
+}
+
+void convert_word32_to_cf32(const void *inp, void *outp, const size_t n)
+{
+    const uint32_t *in = (const uint32_t *)inp;
+    std::complex<float> *out = (std::complex<float> *)outp;
+    for (size_t i = 0; i < n; i++)
+    {
+        int16_t i16 = uint16_t(in[i] >> 16);
+        int16_t q16 = uint16_t(in[i] & 0xffff);
+        out[i] = std::complex<float>(i16/30e3f, q16/30e3f);
+    }
 }
 
 /*******************************************************************
@@ -87,8 +91,18 @@ SoapySDR::Stream *NovenaRF::setupStream(
     const std::vector<size_t> &channels,
     const SoapySDR::Kwargs &)
 {
-    if (format != "CS16") throw std::runtime_error("NovenaRF::setupStream: "+format);
+    //check the format config
+    StreamFormat f;
+    if (format == "CS16") f = SF_CS16;
+    else if (format == "CF32") f = SF_CF32;
+    else throw std::runtime_error("NovenaRF::setupStream: "+format);
+
+    //check the channel config
     if (channels.size() != 1 or channels[0] != 0) throw std::runtime_error("NovenaRF::setupStream: only one channel supported");
+
+    //store the format
+    if (direction == SOAPY_SDR_TX) _txFormat = f;
+    if (direction == SOAPY_SDR_RX) _rxFormat = f;
 
     //use the directions as handles since there is only one dma channel per direction
     return reinterpret_cast<SoapySDR::Stream *>(direction);
@@ -126,6 +140,9 @@ int NovenaRF::activateStream(
 {
     if (int(stream) == SOAPY_SDR_RX)
     {
+        _remainderHandle = -1;
+        _remainderSamps = 0;
+        _remainderBuff = nullptr;
         return this->sendControlMessage(0xff,
             (flags & SOAPY_SDR_HAS_TIME) != 0, //timeFlag
             (flags & SOAPY_SDR_END_BURST) != 0, //burstFlag
@@ -134,7 +151,6 @@ int NovenaRF::activateStream(
 
     if (int(stream) == SOAPY_SDR_TX)
     {
-        //TODO drain stat msgs
         return 0;
     }
 
@@ -148,10 +164,15 @@ int NovenaRF::deactivateStream(
 {
     if (int(stream) == SOAPY_SDR_RX)
     {
-        return sendControlMessage(0x00,
+        int r = sendControlMessage(0x00,
             (flags & SOAPY_SDR_HAS_TIME) != 0, //timeFlag
             true, //burstFlag
             1, this->timeNsToTicks(timeNs));
+
+        //flush rx data channel
+        _framer0_rxd_chan->flush(100);
+
+        return r;
     }
 
     if (int(stream) == SOAPY_SDR_TX)
@@ -162,10 +183,45 @@ int NovenaRF::deactivateStream(
         buffs[0] = buff;
         int f = SOAPY_SDR_END_BURST;
         this->writeStream(stream, buffs, 1, f, 0, 100);
+
+        //flush tx stat channel
+        _deframer0_stat_chan->flush(100);
+
         return 0;
     }
 
     return SOAPY_SDR_STREAM_ERROR;
+}
+
+void NovenaRF::stashConversion(const int inHandle, const void *inp, const size_t numInSamps)
+{
+    _remainderHandle = inHandle;
+    _remainderBuff = (const uint32_t *)inp;
+    _remainderSamps = numInSamps;
+}
+
+int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps)
+{
+    if (_remainderHandle == -1) return 0; //nothing
+
+    //convert the maximum possible number of samples
+    const size_t n = std::min(_remainderSamps, numOutSamps);
+    switch (_rxFormat)
+    {
+    case SF_CS16: convert_word32_to_cs16(_remainderBuff, outp, n); break;
+    case SF_CF32: convert_word32_to_cf32(_remainderBuff, outp, n); break;
+    }
+
+    //deal with remainder and releasing buffer if done
+    _remainderBuff += n;
+    _remainderSamps -= n;
+    if (_remainderSamps == 0)
+    {
+        _framer0_rxd_chan->release(_remainderHandle, 0);
+        _remainderHandle = -1;
+    }
+
+    return n;
 }
 
 /*******************************************************************
@@ -182,6 +238,10 @@ int NovenaRF::readStream(
     size_t len = 0;
     int ret = 0;
     flags = 0;
+
+    //check remainder
+    ret = this->convertRemainder(buffs[0], numElems);
+    if (ret != 0) return ret;
 
     //wait with timeout then acquire
     if (not _framer0_rxd_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
@@ -245,23 +305,9 @@ int NovenaRF::readStream(
             0, 0);
     }
 
-    if (ret == 0) //no errors yet, copy buffer -- sorry for the copy, zero copy in the future...
-    {
-        //TODO if numElems < numSamples, keep remainder...
-        if (numElems < numSamples) SoapySDR::log(SOAPY_SDR_TRACE, "Truncated!");
-        ret = std::min(numSamples, numElems);
-        const uint32_t *in = (const uint32_t *)payload;
-        std::complex<int16_t> *out = (std::complex<int16_t> *)buffs[0];
-        for (int i = 0; i < ret; i++)
-        {
-            int16_t i16 = uint16_t(in[i] >> 16);
-            int16_t q16 = uint16_t(in[i] & 0xffff);
-            out[i] = std::complex<int16_t>(i16, q16);
-        }
-    }
-
-    //always release the buffer back the SG engine
-    _framer0_rxd_chan->release(handle, len);
+    //no errors yet, copy buffer -- sorry for the copy, zero copy in the future...
+    stashConversion(handle, payload, numSamples);
+    if (ret == 0) ret = this->convertRemainder(buffs[0], numElems);
 
     //SoapySDR::logf(SOAPY_SDR_TRACE, "ret=%d", ret);
     return ret;
@@ -319,13 +365,10 @@ int NovenaRF::writeStream(
     );
 
     //convert the samples
-    uint32_t *out = (uint32_t *)payload;
-    std::complex<const int16_t> *in = (std::complex<const int16_t> *)buffs[0];
-    for (size_t i = 0; i < numSamples; i++)
+    switch (_txFormat)
     {
-        uint16_t i16 = in[i].real();
-        uint16_t q16 = in[i].imag();
-        out[i] = (uint32_t(i16) << 16) | q16;
+    case SF_CS16: convert_cs16_to_word32(buffs[0], payload, numSamples); break;
+    case SF_CF32: convert_cf32_to_word32(buffs[0], payload, numSamples); break;
     }
 
     //always release the buffer back the SG engine

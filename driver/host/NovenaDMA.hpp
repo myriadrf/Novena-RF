@@ -138,6 +138,17 @@ public:
         return _frameSize;
     }
 
+    //! flush incoming data - for s2mm
+    void flush(const long timeoutUs)
+    {
+        while (this->waitReady(timeoutUs))
+        {
+            size_t length = 0;
+            int handle = this->acquire(length);
+            this->release(handle, length);
+        }
+    }
+
 private:
     const NovenaDmaDir _dir;
     volatile uint16_t *_statReg;

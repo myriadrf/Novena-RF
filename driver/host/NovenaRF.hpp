@@ -80,7 +80,12 @@ public:
 
     void closeStream(SoapySDR::Stream *);
 
+    //! used by RX to simplify sending a control message (used by various functions)
     int sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time);
+
+    //! used by RX readStream to deal with tiny input buffers from the user
+    void stashConversion(const int inHandle, const void *inp, const size_t numInSamps);
+    int convertRemainder(void *outp, const size_t numOutSamps);
 
     int activateStream(
         SoapySDR::Stream *stream,
@@ -281,10 +286,25 @@ private:
     void *_regs; //mapped register space
     void *_framer0_mem; //mapped RX DMA and RX control
     void *_deframer0_mem; //mapped TX DMA and TX status
+
     std::unique_ptr<NovenaDmaChannel> _framer0_ctrl_chan;
     std::unique_ptr<NovenaDmaChannel> _framer0_rxd_chan;
     std::unique_ptr<NovenaDmaChannel> _deframer0_stat_chan;
     std::unique_ptr<NovenaDmaChannel> _deframer0_txd_chan;
+
+    //rx streaming
+    int _remainderHandle;
+    size_t _remainderSamps;
+    const uint32_t *_remainderBuff;
+
+    //stream configuration
+    enum StreamFormat
+    {
+        SF_CS16,
+        SF_CF32,
+    };
+    StreamFormat _rxFormat;
+    StreamFormat _txFormat;
 };
 
 /***********************************************************************
