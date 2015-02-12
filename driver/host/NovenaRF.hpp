@@ -8,83 +8,284 @@
 ////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <string>
-#include <cstdint>
+#include "NovenaConstants.hpp"
+#include "NovenaDMA.hpp"
 
-/***********************************************************************
- * Configuration settings
- **********************************************************************/
-#define NOVENA_RF_DEVFS "/dev/novena_rf"
+#include <SoapySDR/Device.hpp>
+#include <SoapySDR/Logger.hpp>
 
-#define FPGA_IMAGE_PATH "/lib/firmware/novena_rf.bit"
+#include <stdexcept>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <cerrno>
+#include <memory>
 
-#define FPGA_RESET_GPIO 135
-#define FPGA_LOAD_SPIDEV "/dev/spidev2.0"
+class NovenaRF : public SoapySDR::Device
+{
+public:
+    NovenaRF(const std::string &fpgaImage);
 
-#define LMS_CLOCK_RATE 30.72e6
+    ~NovenaRF(void);
 
-/***********************************************************************
- * FPGA register #defines -- from the VHDL
- **********************************************************************/
-#define REG_SENTINEL_VALUE 0x5246
-#define REG_VERSION_VALUE 0x0001
-#define REG_SENTINEL_ADDR 0
-#define REG_VERSION_ADDR 2
-#define REG_RESET_ADDR 4
-#define REG_LOOPBACK_ADDR 6
-#define REG_LMS_GPIO_ADDR 8
-#define REG_TIME_LO_ADDR 20
-#define REG_TIME_ME_ADDR 22
-#define REG_TIME_HI_ADDR 24
-#define REG_TIME_EX_ADDR 26
-#define REG_TIME_CTRL_ADDR 28
+    /*******************************************************************
+     * FPGA checks and loading
+     ******************************************************************/
+    void fpgaCheckAndLoad(const std::string &fpgaImage);
 
-//--control registers: write to push into DMA control fifo
-//--status registers: read to query value without removal,
-//--and write to pop the value from the DMA status fifo.
-#define REG_S2MM_FRAMER0_CTRL_ADDR 32
-#define REG_S2MM_FRAMER0_STAT_ADDR 34
-#define REG_MM2S_FRAMER0_CTRL_ADDR 36
-#define REG_MM2S_FRAMER0_STAT_ADDR 38
-#define REG_S2MM_DEFRAMER0_CTRL_ADDR 40
-#define REG_S2MM_DEFRAMER0_STAT_ADDR 42
-#define REG_MM2S_DEFRAMER0_CTRL_ADDR 44
-#define REG_MM2S_DEFRAMER0_STAT_ADDR 46
-//--read-only register to query the FIFO readiness
-#define REG_DMA_FIFO_RDY_CTRL_ADDR 48
+    /*******************************************************************
+     * Self test
+     ******************************************************************/
+    void selfTestBus(void);
 
-//filter bypasses for configurable sample rate
-#define REG_DECIM_FILTER_BYPASS 54
-#define REG_INTERP_FILTER_BYPASS 56
-#define REG_LMS_TRX_LOOPBACK 58
+    /*******************************************************************
+     * Initialize DMA channels
+     ******************************************************************/
+    void initDMAChannels(void);
 
-#define NUM_FILTERS 4
-#define TEST0_BRAM_NUM_ENTRIES 16
-#define FRAMER0_FIFO_NUM_ENTRIES 1024
-#define FRAMER0_S2MM_NUM_ENTRIES 4096
-#define FRAMER0_MM2S_NUM_ENTRIES 64
-#define DEFRAMER0_FIFO_NUM_ENTRIES 1024
-#define DEFRAMER0_S2MM_NUM_ENTRIES 64
-#define DEFRAMER0_MM2S_NUM_ENTRIES 4096
+    /*******************************************************************
+     * Identification API
+     ******************************************************************/
+    std::string getDriverKey(void) const
+    {
+        return "NOVENA-RF";
+    }
 
-/***********************************************************************
- * Memory mapped #defines
- * The page numbers are defined in the FPGA by their mux ports
- * The number of frames is a user-defined partition of the BRAM
- **********************************************************************/
-#define NOVENA_RF_REGS_PAGE_NO 0
-#define NOVENA_RF_REGS_PAGE_SIZE 256
+    std::string getHardwareKey(void) const
+    {
+        return "NOVENA";
+    }
 
-#define NOVENA_RF_TEST0_PAGE_NO 1
-#define NOVENA_RF_TEST0_PAGE_SIZE TEST0_BRAM_NUM_ENTRIES*sizeof(uint16_t)
+    /*******************************************************************
+     * Channels API
+     ******************************************************************/
+    size_t getNumChannels(const int) const
+    {
+        return 1;
+    }
 
-#define NOVENA_RF_FRAMER0_PAGE_NO 2
-#define NOVENA_RF_FRAMER0_PAGE_SIZE FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t)
-#define NOVENA_RF_FRAMER0_NUM_FRAMES 4
+    bool getFullDuplex(const int, const size_t) const
+    {
+        return true;
+    }
 
-#define NOVENA_RF_DEFRAMER0_PAGE_NO 3
-#define NOVENA_RF_DEFRAMER0_PAGE_SIZE DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t)
-#define NOVENA_RF_DEFRAMER0_NUM_FRAMES 4
+    /*******************************************************************
+     * Stream API
+     ******************************************************************/
+    SoapySDR::Stream *setupStream(
+        const int direction,
+        const std::string &format,
+        const std::vector<size_t> &channels,
+        const SoapySDR::Kwargs &);
+
+    void closeStream(SoapySDR::Stream *);
+
+    int sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time);
+
+    int activateStream(
+        SoapySDR::Stream *stream,
+        const int flags,
+        const long long timeNs,
+        const size_t numElems);
+
+    int deactivateStream(
+        SoapySDR::Stream *stream,
+        const int flags,
+        const long long timeNs);
+
+    int readStream(
+        SoapySDR::Stream *,
+        void * const *buffs,
+        const size_t numElems,
+        int &flags,
+        long long &timeNs,
+        const long timeoutUs);
+
+    int writeStream(
+        SoapySDR::Stream *,
+        const void * const *buffs,
+        const size_t numElems,
+        int &flags,
+        const long long timeNs,
+        const long timeoutUs
+    );
+
+    /*******************************************************************
+     * Antenna API
+     ******************************************************************/
+
+    /*******************************************************************
+     * Frontend corrections API
+     ******************************************************************/
+
+    /*******************************************************************
+     * Gain API
+     ******************************************************************/
+
+    /*******************************************************************
+     * Frequency API
+     ******************************************************************/
+
+    /*******************************************************************
+     * Sample Rate API
+     ******************************************************************/
+    void setSampleRate(const int direction, const size_t, const double rate)
+    {
+        const double baseRate = this->getMasterClockRate()/2.0;
+        const double factor = baseRate/rate;
+        if (rate > baseRate) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too high");
+        int intFactor = int(factor + 0.5);
+        if (intFactor > (1 << NUM_FILTERS)) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too low");
+        if (std::abs(factor-intFactor) > 0.01) SoapySDR::logf(SOAPY_SDR_WARNING,
+            "NovenaRF::setSampleRate(): not a power of two factor: IF rate = %f MHZ, Requested rate = %f MHz", baseRate/1e6, rate/1e6);
+
+        //stash the actual sample rate
+        _cachedSampleRates[direction] = baseRate/intFactor;
+
+        //compute the enabled filters
+        int enabledFilters = 0;
+        int enabledFiltersR = 0;
+        for (int i = NUM_FILTERS-1; i >= 0; i--)
+        {
+            if (intFactor >= (1 << (i+1)))
+            {
+                enabledFilters |= (1 << i);
+                enabledFiltersR |= (1 << (NUM_FILTERS-(i+1)));
+            }
+        }
+
+        //write the bypass word
+        if (direction == SOAPY_SDR_RX) this->writeRegister(REG_DECIM_FILTER_BYPASS, ~enabledFilters);
+        if (direction == SOAPY_SDR_TX) this->writeRegister(REG_INTERP_FILTER_BYPASS, ~enabledFiltersR);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
+    }
+
+    double getSampleRate(const int direction, const size_t) const
+    {
+        return _cachedSampleRates.at(direction);
+    }
+
+    std::vector<double> listSampleRates(const int, const size_t) const
+    {
+        const double baseRate = this->getMasterClockRate()/2.0;
+        std::vector<double> rates;
+        for (int i = NUM_FILTERS; i >= 0; i--)
+        {
+            rates.push_back(baseRate/(1 << i));
+        }
+        return rates;
+    }
+
+    std::map<int, double> _cachedSampleRates;
+
+    /*******************************************************************
+     * Clocking API
+     ******************************************************************/
+    double getMasterClockRate(void) const
+    {
+        return LMS_CLOCK_RATE;
+    }
+
+    /*******************************************************************
+     * Time API
+     ******************************************************************/
+    long long ticksToTimeNs(const uint64_t ticks) const
+    {
+        return (long long)(ticks/(LMS_CLOCK_RATE/1e9));
+    }
+
+    uint64_t timeNsToTicks(const long long timeNs) const
+    {
+        return uint64_t(timeNs*(LMS_CLOCK_RATE/1e9));
+    }
+
+    bool hasHardwareTime(const std::string &what) const
+    {
+        if (not what.empty()) return SoapySDR::Device::hasHardwareTime(what);
+        return true;
+    }
+
+    long long getHardwareTime(const std::string &what) const
+    {
+        if (not what.empty()) return SoapySDR::Device::getHardwareTime(what);
+
+        //toggle time-in bit to latch the device time into register
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 1);
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 1);
+
+        uint64_t ticks =
+            (uint64_t(this->readRegister(REG_TIME_LO_ADDR)) << 0) |
+            (uint64_t(this->readRegister(REG_TIME_ME_ADDR)) << 16) |
+            (uint64_t(this->readRegister(REG_TIME_HI_ADDR)) << 32) |
+            (uint64_t(this->readRegister(REG_TIME_EX_ADDR)) << 48);
+
+        return this->ticksToTimeNs(ticks);
+    }
+
+    void setHardwareTime(const long long timeNs, const std::string &what)
+    {
+        if (not what.empty()) return SoapySDR::Device::setHardwareTime(timeNs, what);
+
+        uint64_t ticks = this->timeNsToTicks(timeNs);
+        this->writeRegister(REG_TIME_LO_ADDR, (ticks >> 0) & 0xffff);
+        this->writeRegister(REG_TIME_ME_ADDR, (ticks >> 16) & 0xffff);
+        this->writeRegister(REG_TIME_HI_ADDR, (ticks >> 32) & 0xffff);
+        this->writeRegister(REG_TIME_EX_ADDR, (ticks >> 48) & 0xffff);
+
+        //toggle time-out bit to latch the register into device time
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 0);
+        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 0);
+    }
+
+    /*******************************************************************
+     * Sensor API
+     ******************************************************************/
+
+    /*******************************************************************
+     * Register API
+     ******************************************************************/
+    void writeRegister(const unsigned addr, const unsigned value)
+    {
+        volatile uint16_t *p = (volatile uint16_t *)(((char *)_regs) + addr);
+        *p = value;
+    }
+
+    unsigned readRegister(const unsigned addr) const
+    {
+        volatile uint16_t *p = (volatile uint16_t *)(((char *)_regs) + addr);
+        return *p;
+    }
+
+    /*******************************************************************
+     * Settings API
+     ******************************************************************/
+
+    /*******************************************************************
+     * GPIO API
+     ******************************************************************/
+
+    /*******************************************************************
+     * I2C API
+     ******************************************************************/
+
+    /*******************************************************************
+     * SPI API
+     ******************************************************************/
+
+    /*******************************************************************
+     * UART API
+     ******************************************************************/
+
+private:
+    int _novena_fd; //novena_rf kernel module
+    void *_regs; //mapped register space
+    void *_framer0_mem; //mapped RX DMA and RX control
+    void *_deframer0_mem; //mapped TX DMA and TX status
+    std::unique_ptr<NovenaDmaChannel> _framer0_ctrl_chan;
+    std::unique_ptr<NovenaDmaChannel> _framer0_rxd_chan;
+    std::unique_ptr<NovenaDmaChannel> _deframer0_stat_chan;
+    std::unique_ptr<NovenaDmaChannel> _deframer0_txd_chan;
+};
 
 /***********************************************************************
  * Utility functions

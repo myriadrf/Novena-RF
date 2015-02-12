@@ -37,6 +37,7 @@ include_directories(../kernel)
 SOAPY_SDR_MODULE_UTIL(
     TARGET NovenaRF
     SOURCES
+        Streaming.cpp
         NovenaRF.cpp
         LoadFPGA.cpp
 )
