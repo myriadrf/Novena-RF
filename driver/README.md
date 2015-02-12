@@ -4,9 +4,10 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 
 ## Contents
 
-* fpga/ - fpga project bridging LMS6002D to the EIM bus
+* fpga/ - FPGA project bridging LMS6002D to the EIM bus
 * kernel/ - memory mapped access to sample/packet buffers
 * host/ - host wrapper through a SoapySDR support module
+* binary/ - pre-built FPGA image and kernel module
 
 ## Build the FPGA image
 
