@@ -106,7 +106,7 @@ public:
     void release(const int handle, const size_t length)
     {
         _released[handle] = true;
-        _lengths[handle] = (_dir == NRF_DMA_DIR_S2MM)?_frameSize:length;
+        _lengths[handle] = length;
         //determine the new tail (buffers may not be released in order)
         do
         {

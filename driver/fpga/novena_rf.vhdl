@@ -108,10 +108,10 @@ architecture rtl of novena_rf is
 
     constant NUM_FILTERS : positive := 4;
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
-    constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024;
+    constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024*16;
     constant FRAMER0_S2MM_NUM_ENTRIES : positive := 4096;
     constant FRAMER0_MM2S_NUM_ENTRIES : positive := 64;
-    constant DEFRAMER0_FIFO_NUM_ENTRIES : positive := 1024;
+    constant DEFRAMER0_FIFO_NUM_ENTRIES : positive := 1024*16;
     constant DEFRAMER0_S2MM_NUM_ENTRIES : positive := 64;
     constant DEFRAMER0_MM2S_NUM_ENTRIES : positive := 4096;
 
@@ -541,40 +541,6 @@ begin
         out_tready => '1' --framer is always ready
     );
 
-    my_icon: entity work.chipscope_icon
-    port map (
-        CONTROL0 => CONTROL_ILA
-    );
-    my_ila: entity work.chipscope_ila
-    port map (
-        CLK => lms_clk,
-        CONTROL => CONTROL_ILA,
-        TRIG0 => TRIG_ILA,
-        DATA => DATA_ILA
-    );
-
-    TRIG_ILA(0) <= deframer0_txd_ready;
-    TRIG_ILA(1) <= deframer0_txd_valid;
-    TRIG_ILA(2) <= dac_ready;
-    TRIG_ILA(3) <= interp_ready;
-    TRIG_ILA(4) <= deframer0_txd_last;
-
-    DATA_ILA(15 downto 0) <= interp_data(15 downto 0);
-    DATA_ILA(31 downto 16) <= dac_data(15 downto 0);
-    DATA_ILA(32) <= deframer0_txd_ready;
-    DATA_ILA(33) <= deframer0_txd_valid;
-    DATA_ILA(34) <= dac_ready;
-    DATA_ILA(35) <= interp_ready;
-    DATA_ILA(36) <= mm2s_deframer0_ctrl_valid;
-    DATA_ILA(37) <= mm2s_deframer0_ctrl_ready;
-    DATA_ILA(38) <= mm2s_deframer0_stat_valid;
-    DATA_ILA(39) <= mm2s_deframer0_stat_ready;
-    DATA_ILA(40) <= s2mm_deframer0_ctrl_valid;
-    DATA_ILA(41) <= s2mm_deframer0_ctrl_ready;
-    DATA_ILA(42) <= s2mm_deframer0_stat_valid;
-    DATA_ILA(43) <= s2mm_deframer0_stat_ready;
-    DATA_ILA(44) <= deframer0_txd_last;
-
     --------------------------------------------------------------------
     -- TX deframer
     --------------------------------------------------------------------
@@ -595,7 +561,7 @@ begin
         in_tvalid => deframer0_txd_valid,
         stat_tdata => deframer0_stat_data,
         stat_tlast => deframer0_stat_last,
-        stat_tready => deframer0_txd_ready,
+        stat_tready => deframer0_stat_ready,
         stat_tvalid => deframer0_stat_valid,
         dac_active => dac_active
     );

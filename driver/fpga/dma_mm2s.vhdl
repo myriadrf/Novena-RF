@@ -219,10 +219,12 @@ begin
 
         when STATE_READ0 =>
             state <= STATE_STREAM;
+            active_addr <= active_addr + to_unsigned(4, active_addr'length);
 
         when STATE_STREAM =>
 
             if (stream_valid_int = '1' and stream_ready = '1') then
+                active_addr <= active_addr + to_unsigned(4, active_addr'length);
                 if (stream_last_int = '1') then
                     state <= STATE_WR_STAT;
                 end if;
@@ -234,11 +236,6 @@ begin
             end if;
 
         end case;
-
-        --increment to the next address after a read cycle
-        if (Re = '1') then
-            active_addr <= active_addr + to_unsigned(4, active_addr'length);
-        end if;
 
         end if;
     end if;

@@ -153,6 +153,11 @@ architecture rtl of twbw_deframer is
     signal end_burst : std_logic := '0';
     signal time_wait0 : boolean := false;
 
+    --ila debug
+    signal CONTROL_ILA : std_logic_vector(35 downto 0);
+    signal DATA_ILA : std_logic_vector(63 downto 0);
+    signal TRIG_ILA : std_logic_vector(7 downto 0);
+
 begin
     assert (TIME_WIDTH <= 64) report "twbw_deframer: time width too large" severity failure;
     assert (DATA_WIDTH >= 32) report "twbw_deframer: data width too small" severity failure;
@@ -296,6 +301,8 @@ begin
                 else
                     state <= STATE_HDR1_IN;
                 end if;
+            elsif (underflow = '1') then
+                state <= STATE_TX_IDLE;
             end if;
 
         when STATE_HDR1_IN =>
@@ -380,5 +387,46 @@ begin
     end if;
 
     end process;
+
+    
+
+    my_icon: entity work.chipscope_icon
+    port map (
+        CONTROL0 => CONTROL_ILA
+    );
+    my_ila: entity work.chipscope_ila
+    port map (
+        CLK => clk,
+        CONTROL => CONTROL_ILA,
+        TRIG0 => TRIG_ILA,
+        DATA => DATA_ILA
+    );
+
+    TRIG_ILA(0) <= framed_fifo_out_last;
+    TRIG_ILA(1) <= framed_fifo_out_valid;
+    TRIG_ILA(2) <= framed_fifo_out_ready;
+    --TRIG_ILA(3) <= stat_tlast;
+    TRIG_ILA(4) <= stat_fifo_in_valid;
+    TRIG_ILA(5) <= stat_fifo_in_ready;
+    TRIG_ILA(6) <= dac_tready;
+    TRIG_ILA(7) <= '1' when dac_active_i else '0';
+
+    DATA_ILA(7 downto 0) <= std_logic_vector(state_num);
+    DATA_ILA(8) <= dac_fifo_out_valid;
+    DATA_ILA(9) <= dac_tready;
+    DATA_ILA(10) <= dac_fifo_in_valid;
+    DATA_ILA(11) <= dac_fifo_in_ready;
+    DATA_ILA(12) <= stat_fifo_in_valid;
+    DATA_ILA(13) <= stat_fifo_in_ready;
+    DATA_ILA(14) <= framed_fifo_out_last;
+    DATA_ILA(15) <= framed_fifo_out_valid;
+    DATA_ILA(16) <= framed_fifo_out_ready;
+    DATA_ILA(17) <= '1' when dac_active_i else '0';
+    DATA_ILA(18) <= time_flag;
+    DATA_ILA(19) <= continuous_flag;
+    DATA_ILA(20) <= underflow;
+    DATA_ILA(21) <= time_error;
+    DATA_ILA(22) <= end_burst;
+    DATA_ILA(23) <= '1' when time_wait0 else '0';
 
 end architecture rtl;

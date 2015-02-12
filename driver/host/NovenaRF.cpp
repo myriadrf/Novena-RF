@@ -227,10 +227,11 @@ public:
             SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
         }
         //*/
-        //*
-        this->writeRegister(REG_INTERP_FILTER_BYPASS, ~0x1); //all bypass - full rate
-        this->writeRegister(REG_DECIM_FILTER_BYPASS, ~0x1); //all bypass - full rate
+        /*
+        this->writeRegister(REG_INTERP_FILTER_BYPASS, 0x0); //no bypass
+        this->writeRegister(REG_DECIM_FILTER_BYPASS, 0x0); //no bypass
         this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
+        this->setSampleRate(SOAPY_SDR_TX, 0, 61.44e6/4./2./2./2./2.);
         sleep(1);
 
         void *handle = this->setupStream(SOAPY_SDR_TX, "CS16", std::vector<size_t>(1, 0), SoapySDR::Kwargs());
@@ -238,12 +239,18 @@ public:
         uint32_t buff[1024];
         buffs[0] = buff;
         for (size_t j = 0; j < 1024; j++) buff[j] = 0xA100B200;
-        int flags = SOAPY_SDR_END_BURST;
+        int flags = 0;//SOAPY_SDR_END_BURST;
         long long timeNs = 0;
-        for (int i = 0; i < 10; i++)
+        int x = 0;
+        while (1)
         {
+            for (size_t j = 0; j < 1000; j++)
+            {
+                buff[j] = (x << 16) | (x & 0xffff);
+                x++;
+            }
             int ret = this->writeStream((SoapySDR::Stream *)handle, buffs, 1000, flags, timeNs, 1e6);
-            SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
+            //SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
         }
         //*/
     }
@@ -330,6 +337,7 @@ public:
 
         if (int(stream) == SOAPY_SDR_TX)
         {
+            //TODO drain stat msgs
             return 0;
         }
 
@@ -351,6 +359,12 @@ public:
 
         if (int(stream) == SOAPY_SDR_TX)
         {
+            //send mini end of burst transmission
+            void *buffs[1];
+            uint32_t buff[1];
+            buffs[0] = buff;
+            int f = SOAPY_SDR_END_BURST;
+            this->writeStream(stream, buffs, 1, f, 0, 100);
             return 0;
         }
 
@@ -450,7 +464,7 @@ public:
         }
 
         //always release the buffer back the SG engine
-        _framer0_rxd_chan->release(handle, 0);
+        _framer0_rxd_chan->release(handle, len);
 
         //SoapySDR::logf(SOAPY_SDR_TRACE, "ret=%d", ret);
         return ret;
@@ -469,14 +483,14 @@ public:
     )
     {
         size_t len = 0;
+        static int id = 0;
 
         //remove any stat reporting
-        static int id = 0;
         while (_deframer0_stat_chan->waitReady(0))
         {
             int handle = _deframer0_stat_chan->acquire(len);
             bool underflow;
-            int idTag;
+            int idTag = 0;
             bool hasTime;
             long long timeTicks;
             bool timeError;
@@ -484,11 +498,11 @@ public:
             twbw_deframer_stat_unpacker(
                 _deframer0_stat_chan->buffer(handle), len,
                 underflow, idTag, hasTime, timeTicks, timeError, burstEnd);
-            SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
+            //SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
             if (underflow) SoapySDR::log(SOAPY_SDR_TRACE, "U");
             if (timeError) SoapySDR::log(SOAPY_SDR_TRACE, "T");
-            _deframer0_stat_chan->release(handle, 0);
-            sleep(1);
+            if (burstEnd) SoapySDR::log(SOAPY_SDR_TRACE, "B");
+            _deframer0_stat_chan->release(handle, len);
         }
 
         //wait with timeout then acquire
@@ -518,7 +532,7 @@ public:
         }
 
         //always release the buffer back the SG engine
-        _deframer0_txd_chan->release(handle, 0);
+        _deframer0_txd_chan->release(handle, len);
 
         return numSamples;
     }
@@ -563,14 +577,14 @@ public:
             if (intFactor >= (1 << (i+1)))
             {
                 enabledFilters |= (1 << i);
-                enabledFiltersR |= ((NUM_FILTERS-(i+1)) << 1);
+                enabledFiltersR |= (1 << (NUM_FILTERS-(i+1)));
             }
         }
 
         //write the bypass word
         if (direction == SOAPY_SDR_RX) this->writeRegister(REG_DECIM_FILTER_BYPASS, ~enabledFilters);
         if (direction == SOAPY_SDR_TX) this->writeRegister(REG_INTERP_FILTER_BYPASS, ~enabledFiltersR);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
     }
 
     double getSampleRate(const int direction, const size_t) const
