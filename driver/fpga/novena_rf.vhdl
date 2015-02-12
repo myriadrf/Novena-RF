@@ -553,15 +553,27 @@ begin
         DATA => DATA_ILA
     );
 
-    TRIG_ILA(0) <= adc_valid;
-    TRIG_ILA(1) <= decim_valid;
+    TRIG_ILA(0) <= deframer0_txd_ready;
+    TRIG_ILA(1) <= deframer0_txd_valid;
     TRIG_ILA(2) <= dac_ready;
     TRIG_ILA(3) <= interp_ready;
+    TRIG_ILA(4) <= deframer0_txd_last;
 
-    DATA_ILA(0) <= adc_valid;
-    DATA_ILA(1) <= decim_valid;
-    DATA_ILA(2) <= dac_ready;
-    DATA_ILA(3) <= interp_ready;
+    DATA_ILA(15 downto 0) <= interp_data(15 downto 0);
+    DATA_ILA(31 downto 16) <= dac_data(15 downto 0);
+    DATA_ILA(32) <= deframer0_txd_ready;
+    DATA_ILA(33) <= deframer0_txd_valid;
+    DATA_ILA(34) <= dac_ready;
+    DATA_ILA(35) <= interp_ready;
+    DATA_ILA(36) <= mm2s_deframer0_ctrl_valid;
+    DATA_ILA(37) <= mm2s_deframer0_ctrl_ready;
+    DATA_ILA(38) <= mm2s_deframer0_stat_valid;
+    DATA_ILA(39) <= mm2s_deframer0_stat_ready;
+    DATA_ILA(40) <= s2mm_deframer0_ctrl_valid;
+    DATA_ILA(41) <= s2mm_deframer0_ctrl_ready;
+    DATA_ILA(42) <= s2mm_deframer0_stat_valid;
+    DATA_ILA(43) <= s2mm_deframer0_stat_ready;
+    DATA_ILA(44) <= deframer0_txd_last;
 
     --------------------------------------------------------------------
     -- TX deframer

@@ -96,7 +96,11 @@ architecture rtl of dma_mm2s is
     signal active_addr : unsigned(15 downto 0);
     signal last_addr : unsigned(15 downto 0);
 
+    signal arstn : std_logic;
+
 begin
+
+    arstn <= '0' when (mem_rst = '1' or stream_rst = '1') else '1';
 
     --------------------------------------------------------------------
     -- Stream interface
@@ -111,22 +115,17 @@ begin
     --------------------------------------------------------------------
     -- Control FIFO
     --------------------------------------------------------------------
-    ctrl_fifo : entity work.StreamFifoXClk
-    generic map (
-        MEM_SIZE => CTRL_DEPTH,
-        SYNC_READ => false
-    )
+    ctrl_fifo : entity work.stream_fifo16_xclk
     port map (
-        in_clk => mem_clk,
-        in_rst => mem_rst,
-        out_clk => stream_clk,
-        out_rst => stream_rst,
-        in_data => ctrl_data,
-        in_valid => ctrl_valid,
-        in_ready => ctrl_ready,
-        out_data => ctrl_data_int,
-        out_valid => ctrl_valid_int,
-        out_ready => ctrl_ready_int
+        m_aclk => stream_clk,
+        s_aclk => mem_clk,
+        s_aresetn => arstn,
+        s_axis_tdata => ctrl_data,
+        s_axis_tvalid => ctrl_valid,
+        s_axis_tready => ctrl_ready,
+        m_axis_tdata => ctrl_data_int,
+        m_axis_tvalid => ctrl_valid_int,
+        m_axis_tready => ctrl_ready_int
     );
 
     ctrl_ready_int <= '1' when (state = STATE_RD_CTRL or state = STATE_RD_END) else '0';
@@ -134,22 +133,17 @@ begin
     --------------------------------------------------------------------
     -- Status FIFO
     --------------------------------------------------------------------
-    stat_fifo : entity work.StreamFifoXClk
-    generic map (
-        MEM_SIZE => CTRL_DEPTH,
-        SYNC_READ => false
-    )
+    stat_fifo : entity work.stream_fifo16_xclk
     port map (
-        in_clk => stream_clk,
-        in_rst => stream_rst,
-        out_clk => mem_clk,
-        out_rst => mem_rst,
-        in_data => stat_data_int,
-        in_valid => stat_valid_int,
-        in_ready => stat_ready_int,
-        out_data => stat_data,
-        out_valid => stat_valid,
-        out_ready => stat_ready
+        m_aclk => mem_clk,
+        s_aclk => stream_clk,
+        s_aresetn => arstn,
+        s_axis_tdata => stat_data_int,
+        s_axis_tvalid => stat_valid_int,
+        s_axis_tready => stat_ready_int,
+        m_axis_tdata => stat_data,
+        m_axis_tvalid => stat_valid,
+        m_axis_tready => stat_ready
     );
 
     stat_data_int <= std_logic_vector(active_addr);

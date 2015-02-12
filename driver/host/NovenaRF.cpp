@@ -215,17 +215,36 @@ public:
         sleep(1);
 
         void *handle = this->setupStream(SOAPY_SDR_RX, "CS16", std::vector<size_t>(1, 0), SoapySDR::Kwargs());
-        this->activateStream((SoapySDR::Stream *)handle, SOAPY_SDR_END_BURST, 0, 2*1000);
+        this->activateStream((SoapySDR::Stream *)handle, 0, 0, 0);
         void *buffs[1];
         uint32_t buff[1024];
         buffs[0] = buff;
         int flags = 0;
         long long timeNs = 0;
-        int ret = this->readStream((SoapySDR::Stream *)handle, buffs, 1024, flags, timeNs, 1e6);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "ret1=%d", ret);
-        ret = this->readStream((SoapySDR::Stream *)handle, buffs, 1024, flags, timeNs, 1e6);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "ret2=%d", ret);
+        for (int i = 0; i < 100; i++)
+        {
+            int ret = this->readStream((SoapySDR::Stream *)handle, buffs, 1024, flags, timeNs, 1e6);
+            SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
+        }
+        //*/
+        //*
+        this->writeRegister(REG_INTERP_FILTER_BYPASS, ~0x1); //all bypass - full rate
+        this->writeRegister(REG_DECIM_FILTER_BYPASS, ~0x1); //all bypass - full rate
+        this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
         sleep(1);
+
+        void *handle = this->setupStream(SOAPY_SDR_TX, "CS16", std::vector<size_t>(1, 0), SoapySDR::Kwargs());
+        void *buffs[1];
+        uint32_t buff[1024];
+        buffs[0] = buff;
+        for (size_t j = 0; j < 1024; j++) buff[j] = 0xA100B200;
+        int flags = SOAPY_SDR_END_BURST;
+        long long timeNs = 0;
+        for (int i = 0; i < 10; i++)
+        {
+            int ret = this->writeStream((SoapySDR::Stream *)handle, buffs, 1000, flags, timeNs, 1e6);
+            SoapySDR::logf(SOAPY_SDR_TRACE, "ret(%d)=%d", i, ret);
+        }
         //*/
     }
 
@@ -357,7 +376,6 @@ public:
         if (not _framer0_rxd_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
         int handle = _framer0_rxd_chan->acquire(len);
         if (handle == -2) throw std::runtime_error("NovenaRF::readStream() all claimed");
-        //printf("len=%d, \n", len);
 
         //unpack the header
         const void *payload;
@@ -374,9 +392,6 @@ public:
             payload, numSamples, overflow, idTag,
             hasTime, timeTicks,
             timeError, isBurst, burstEnd);
-        //uint32_t *hdr = (uint32_t *)_framer0_rxd_chan->buffer(handle);
-        //for (int i = 0; i < 4; i++) printf("hdr[%d] = 0x%x\n", i, hdr[i]);
-        //printf("numSamples=%d, %d offset, tag=%x\n", numSamples, _framer0_rxd_chan->bramOffset(handle), idTag);
 
         //gather time even if its not valid
         timeNs = this->ticksToTimeNs(timeTicks);
@@ -455,6 +470,27 @@ public:
     {
         size_t len = 0;
 
+        //remove any stat reporting
+        static int id = 0;
+        while (_deframer0_stat_chan->waitReady(0))
+        {
+            int handle = _deframer0_stat_chan->acquire(len);
+            bool underflow;
+            int idTag;
+            bool hasTime;
+            long long timeTicks;
+            bool timeError;
+            bool burstEnd;
+            twbw_deframer_stat_unpacker(
+                _deframer0_stat_chan->buffer(handle), len,
+                underflow, idTag, hasTime, timeTicks, timeError, burstEnd);
+            SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
+            if (underflow) SoapySDR::log(SOAPY_SDR_TRACE, "U");
+            if (timeError) SoapySDR::log(SOAPY_SDR_TRACE, "T");
+            _deframer0_stat_chan->release(handle, 0);
+            sleep(1);
+        }
+
         //wait with timeout then acquire
         if (not _deframer0_txd_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
         int handle = _deframer0_txd_chan->acquire(len);
@@ -465,7 +501,7 @@ public:
         size_t numSamples = std::min<size_t>(_deframer0_txd_chan->frameSize()/sizeof(uint32_t)-6, numElems);
         twbw_deframer_data_packer(
             _deframer0_txd_chan->buffer(handle), len, sizeof(uint32_t),
-            payload, numSamples, 0x00,
+            payload, numSamples, id++,
             (flags & SOAPY_SDR_HAS_TIME) != 0,
             this->timeNsToTicks(timeNs),
             (flags & SOAPY_SDR_END_BURST) != 0
