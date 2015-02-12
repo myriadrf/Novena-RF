@@ -74,6 +74,7 @@ begin
         signal in_filter_ready : std_logic;
         signal in_filter_valid : std_logic;
         signal out_filter_data : std_logic_vector(31 downto 0);
+        signal out_filter_data_2x : std_logic_vector(31 downto 0);
         signal out_filter_ready : std_logic;
         signal out_filter_valid : std_logic;
     begin
@@ -82,9 +83,15 @@ begin
         in_filter_valid <= valids(i) when (bypass(i) = '0') else '0';
         out_filter_ready <= readies(i+1) when (bypass(i) = '0') else '0';
 
-        datas(((i+1)*32) + 31 downto ((i+1)*32)) <= out_filter_data when (bypass(i) = '0') else in_filter_data;
+        datas(((i+1)*32) + 31 downto ((i+1)*32)) <= out_filter_data_2x when (bypass(i) = '0') else in_filter_data;
         valids(i+1) <= out_filter_valid when (bypass(i) = '0') else valids(i);
         readies(i) <= in_filter_ready when (bypass(i) = '0') else readies(i+1);
+
+        --shift up for filter loss
+        out_filter_data_2x(31 downto 17) <= out_filter_data(30 downto 16);
+        out_filter_data_2x(16) <= '0';
+        out_filter_data_2x(15 downto 1) <= out_filter_data(14 downto 0);
+        out_filter_data_2x(0) <= '0';
 
     interp_gen: if MODE = "interp" generate
         interp : entity work.half_band_interp
