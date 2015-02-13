@@ -12,8 +12,11 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 ## Prebuilt
 
 There is a compiled FPGA image and kernel module in binary/
-Run sudo binary/prepare_novena_rf.sh to install the files
-and to set the system permissions
+To install the files and to set the system permissions:
+
+```
+sudo binary/prepare_novena_rf.sh
+```
 
 ## Build the SoapySDR module
 
