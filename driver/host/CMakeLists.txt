@@ -35,8 +35,9 @@ include_directories(${LMS_SUITE_BASE}/include)
 include_directories(${LMS_SUITE_BASE}/include/lms6)
 
 #hide noisy warnings
-set_source_files_properties(${LMS_SOURCES}
+set_source_files_properties(${LMS_SOURCES} NovenaLMS6.cpp
     PROPERTIES "COMPILE_FLAGS" "-Wno-unused-parameter")
+#add_definitions(-Wno-unused-parameter)
 
 #libraries: pthread, and usb
 #usb not really needed, but its part of the build
@@ -67,6 +68,7 @@ SOAPY_SDR_MODULE_UTIL(
     SOURCES
         Streaming.cpp
         NovenaRF.cpp
+        NovenaLMS6.cpp
         LoadFPGA.cpp
         ${LMS_SOURCES}
     LIBRARIES

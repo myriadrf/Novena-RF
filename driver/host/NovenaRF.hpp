@@ -21,12 +21,23 @@
 #include <cerrno>
 #include <memory>
 
+namespace lms6
+{
+    class LMS6002_MainControl;
+}
+
 class NovenaRF : public SoapySDR::Device
 {
 public:
     NovenaRF(const std::string &fpgaImage);
 
     ~NovenaRF(void);
+
+    /*******************************************************************
+     * RFIC setup and tear-down
+     ******************************************************************/
+    void initRFIC(void);
+    void exitRFIC(void);
 
     /*******************************************************************
      * FPGA checks and loading
@@ -118,6 +129,15 @@ public:
     /*******************************************************************
      * Antenna API
      ******************************************************************/
+    std::vector<std::string> listAntennas(const int direction, const size_t channel) const
+    {
+        return std::vector<std::string>(1, this->getAntenna(direction, channel));
+    }
+
+    std::string getAntenna(const int direction, const size_t) const
+    {
+        return (direction == SOAPY_SDR_TX)?"TX":"RX";
+    }
 
     /*******************************************************************
      * Frontend corrections API
@@ -126,62 +146,45 @@ public:
     /*******************************************************************
      * Gain API
      ******************************************************************/
+    std::vector<std::string> listGains(const int direction, const size_t channel) const;
+
+    void setGain(const int direction, const size_t channel, const double value);
+
+    void setGain(const int direction, const size_t channel, const std::string &name, const double value);
+
+    double getGain(const int direction, const size_t channel, const std::string &name) const;
+
+    SoapySDR::Range getGainRange(const int direction, const size_t channel) const;
+
+    SoapySDR::Range getGainRange(const int direction, const size_t channel, const std::string &name) const;
 
     /*******************************************************************
      * Frequency API
      ******************************************************************/
+    void setFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &args);
+
+    double getFrequency(const int direction, const size_t channel) const;
+
+    SoapySDR::RangeList getFrequencyRange(const int direction, const size_t channel) const;
+
+    std::map<int, double> _cachedTuneResults;
 
     /*******************************************************************
      * Sample Rate API
      ******************************************************************/
-    void setSampleRate(const int direction, const size_t, const double rate)
-    {
-        const double baseRate = this->getMasterClockRate()/2.0;
-        const double factor = baseRate/rate;
-        if (rate > baseRate) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too high");
-        int intFactor = int(factor + 0.5);
-        if (intFactor > (1 << NUM_FILTERS)) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too low");
-        if (std::abs(factor-intFactor) > 0.01) SoapySDR::logf(SOAPY_SDR_WARNING,
-            "NovenaRF::setSampleRate(): not a power of two factor: IF rate = %f MHZ, Requested rate = %f MHz", baseRate/1e6, rate/1e6);
+    void setSampleRate(const int direction, const size_t, const double rate);
 
-        //stash the actual sample rate
-        _cachedSampleRates[direction] = baseRate/intFactor;
+    double getSampleRate(const int direction, const size_t) const;
 
-        //compute the enabled filters
-        int enabledFilters = 0;
-        int enabledFiltersR = 0;
-        for (int i = NUM_FILTERS-1; i >= 0; i--)
-        {
-            if (intFactor >= (1 << (i+1)))
-            {
-                enabledFilters |= (1 << i);
-                enabledFiltersR |= (1 << (NUM_FILTERS-(i+1)));
-            }
-        }
-
-        //write the bypass word
-        if (direction == SOAPY_SDR_RX) this->writeRegister(REG_DECIM_FILTER_BYPASS, ~enabledFilters);
-        if (direction == SOAPY_SDR_TX) this->writeRegister(REG_INTERP_FILTER_BYPASS, ~enabledFiltersR);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
-    }
-
-    double getSampleRate(const int direction, const size_t) const
-    {
-        return _cachedSampleRates.at(direction);
-    }
-
-    std::vector<double> listSampleRates(const int, const size_t) const
-    {
-        const double baseRate = this->getMasterClockRate()/2.0;
-        std::vector<double> rates;
-        for (int i = NUM_FILTERS; i >= 0; i--)
-        {
-            rates.push_back(baseRate/(1 << i));
-        }
-        return rates;
-    }
+    std::vector<double> listSampleRates(const int, const size_t) const;
 
     std::map<int, double> _cachedSampleRates;
+
+    void setBandwidth(const int direction, const size_t channel, const double bw);
+
+    double getBandwidth(const int direction, const size_t channel) const;
+
+    std::vector<double> listBandwidths(const int direction, const size_t channel) const;
 
     /*******************************************************************
      * Clocking API
@@ -204,43 +207,11 @@ public:
         return uint64_t(timeNs*(LMS_CLOCK_RATE/1e9));
     }
 
-    bool hasHardwareTime(const std::string &what) const
-    {
-        if (not what.empty()) return SoapySDR::Device::hasHardwareTime(what);
-        return true;
-    }
+    bool hasHardwareTime(const std::string &what) const;
 
-    long long getHardwareTime(const std::string &what) const
-    {
-        if (not what.empty()) return SoapySDR::Device::getHardwareTime(what);
+    long long getHardwareTime(const std::string &what) const;
 
-        //toggle time-in bit to latch the device time into register
-        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 1);
-        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 1);
-
-        uint64_t ticks =
-            (uint64_t(this->readRegister(REG_TIME_LO_ADDR)) << 0) |
-            (uint64_t(this->readRegister(REG_TIME_ME_ADDR)) << 16) |
-            (uint64_t(this->readRegister(REG_TIME_HI_ADDR)) << 32) |
-            (uint64_t(this->readRegister(REG_TIME_EX_ADDR)) << 48);
-
-        return this->ticksToTimeNs(ticks);
-    }
-
-    void setHardwareTime(const long long timeNs, const std::string &what)
-    {
-        if (not what.empty()) return SoapySDR::Device::setHardwareTime(timeNs, what);
-
-        uint64_t ticks = this->timeNsToTicks(timeNs);
-        this->writeRegister(REG_TIME_LO_ADDR, (ticks >> 0) & 0xffff);
-        this->writeRegister(REG_TIME_ME_ADDR, (ticks >> 16) & 0xffff);
-        this->writeRegister(REG_TIME_HI_ADDR, (ticks >> 32) & 0xffff);
-        this->writeRegister(REG_TIME_EX_ADDR, (ticks >> 48) & 0xffff);
-
-        //toggle time-out bit to latch the register into device time
-        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 0);
-        const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 0);
-    }
+    void setHardwareTime(const long long timeNs, const std::string &what);
 
     /*******************************************************************
      * Sensor API
@@ -287,6 +258,10 @@ private:
     void *_framer0_mem; //mapped RX DMA and RX control
     void *_deframer0_mem; //mapped TX DMA and TX status
 
+    //lms suite instantiation
+    lms6::LMS6002_MainControl *_lms6ctrl;
+
+    //dma channel management
     std::unique_ptr<NovenaDmaChannel> _framer0_ctrl_chan;
     std::unique_ptr<NovenaDmaChannel> _framer0_rxd_chan;
     std::unique_ptr<NovenaDmaChannel> _deframer0_stat_chan;

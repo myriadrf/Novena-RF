@@ -25,7 +25,8 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
     _novena_fd(-1),
     _regs(nullptr),
     _framer0_mem(nullptr),
-    _deframer0_mem(nullptr)
+    _deframer0_mem(nullptr),
+    _lms6ctrl(nullptr)
 {
     setvbuf(stdout, NULL, _IOLBF, 0);
 
@@ -71,12 +72,17 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
         throw std::runtime_error("Failed to map deframer memory " + std::string(strerror(errno)));
     }
 
+    //initiate communication with the frontend
+    this->initRFIC();
+
+    //initialize the DMA channels
     this->writeRegister(REG_LMS_TRX_LOOPBACK, 0); //disable loopback
     this->initDMAChannels();
 }
 
 NovenaRF::~NovenaRF(void)
 {
+    this->exitRFIC();
     munmap(_regs, NOVENA_RF_REGS_PAGE_SIZE);
     munmap(_framer0_mem, NOVENA_RF_FRAMER0_PAGE_SIZE);
     munmap(_deframer0_mem, NOVENA_RF_DEFRAMER0_PAGE_SIZE);
@@ -170,6 +176,97 @@ void NovenaRF::selfTestBus(void)
     }
 
     munmap(test_page, NOVENA_RF_TEST0_PAGE_SIZE);
+}
+
+/*******************************************************************
+ * Sample Rate API
+ ******************************************************************/
+void NovenaRF::setSampleRate(const int direction, const size_t, const double rate)
+{
+    const double baseRate = this->getMasterClockRate()/2.0;
+    const double factor = baseRate/rate;
+    if (rate > baseRate) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too high");
+    int intFactor = int(factor + 0.5);
+    if (intFactor > (1 << NUM_FILTERS)) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too low");
+    if (std::abs(factor-intFactor) > 0.01) SoapySDR::logf(SOAPY_SDR_WARNING,
+        "NovenaRF::setSampleRate(): not a power of two factor: IF rate = %f MHZ, Requested rate = %f MHz", baseRate/1e6, rate/1e6);
+
+    //stash the actual sample rate
+    _cachedSampleRates[direction] = baseRate/intFactor;
+
+    //compute the enabled filters
+    int enabledFilters = 0;
+    int enabledFiltersR = 0;
+    for (int i = NUM_FILTERS-1; i >= 0; i--)
+    {
+        if (intFactor >= (1 << (i+1)))
+        {
+            enabledFilters |= (1 << i);
+            enabledFiltersR |= (1 << (NUM_FILTERS-(i+1)));
+        }
+    }
+
+    //write the bypass word
+    if (direction == SOAPY_SDR_RX) this->writeRegister(REG_DECIM_FILTER_BYPASS, ~enabledFilters);
+    if (direction == SOAPY_SDR_TX) this->writeRegister(REG_INTERP_FILTER_BYPASS, ~enabledFiltersR);
+    SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
+}
+
+double NovenaRF::getSampleRate(const int direction, const size_t) const
+{
+    return _cachedSampleRates.at(direction);
+}
+
+std::vector<double> NovenaRF::listSampleRates(const int, const size_t) const
+{
+    const double baseRate = this->getMasterClockRate()/2.0;
+    std::vector<double> rates;
+    for (int i = NUM_FILTERS; i >= 0; i--)
+    {
+        rates.push_back(baseRate/(1 << i));
+    }
+    return rates;
+}
+
+/*******************************************************************
+ * Time API
+ ******************************************************************/
+bool NovenaRF::hasHardwareTime(const std::string &what) const
+{
+    if (not what.empty()) return SoapySDR::Device::hasHardwareTime(what);
+    return true;
+}
+
+long long NovenaRF::getHardwareTime(const std::string &what) const
+{
+    if (not what.empty()) return SoapySDR::Device::getHardwareTime(what);
+
+    //toggle time-in bit to latch the device time into register
+    const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 1);
+    const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 1);
+
+    uint64_t ticks =
+        (uint64_t(this->readRegister(REG_TIME_LO_ADDR)) << 0) |
+        (uint64_t(this->readRegister(REG_TIME_ME_ADDR)) << 16) |
+        (uint64_t(this->readRegister(REG_TIME_HI_ADDR)) << 32) |
+        (uint64_t(this->readRegister(REG_TIME_EX_ADDR)) << 48);
+
+    return this->ticksToTimeNs(ticks);
+}
+
+void NovenaRF::setHardwareTime(const long long timeNs, const std::string &what)
+{
+    if (not what.empty()) return SoapySDR::Device::setHardwareTime(timeNs, what);
+
+    uint64_t ticks = this->timeNsToTicks(timeNs);
+    this->writeRegister(REG_TIME_LO_ADDR, (ticks >> 0) & 0xffff);
+    this->writeRegister(REG_TIME_ME_ADDR, (ticks >> 16) & 0xffff);
+    this->writeRegister(REG_TIME_HI_ADDR, (ticks >> 32) & 0xffff);
+    this->writeRegister(REG_TIME_EX_ADDR, (ticks >> 48) & 0xffff);
+
+    //toggle time-out bit to latch the register into device time
+    const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 1 << 0);
+    const_cast<NovenaRF *>(this)->writeRegister(REG_TIME_CTRL_ADDR, 0 << 0);
 }
 
 /***********************************************************************
