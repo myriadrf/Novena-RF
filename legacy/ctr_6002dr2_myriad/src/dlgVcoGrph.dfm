@@ -1,0 +1,61 @@
+object dlgGraph: TdlgGraph
+  Left = 337
+  Top = 180
+  BorderStyle = bsDialog
+  Caption = 'Dialog'
+  ClientHeight = 566
+  ClientWidth = 792
+  Color = clBtnFace
+  ParentFont = True
+  OldCreateOrder = True
+  Position = poScreenCenter
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object chrtVcos: TChart
+    Left = 80
+    Top = 24
+    Width = 400
+    Height = 250
+    BackWall.Brush.Color = clWhite
+    BackWall.Brush.Style = bsClear
+    Title.Text.Strings = (
+      'TChart')
+    Legend.LegendStyle = lsSeries
+    View3D = False
+    BevelOuter = bvNone
+    TabOrder = 0
+    object serVco1R: TFastLineSeries
+      Marks.ArrowLength = 8
+      Marks.Visible = False
+      SeriesColor = clRed
+      Title = 'Real'
+      LinePen.Color = clRed
+      XValues.DateTime = False
+      XValues.Name = 'X'
+      XValues.Multiplier = 1
+      XValues.Order = loAscending
+      YValues.DateTime = False
+      YValues.Name = 'Y'
+      YValues.Multiplier = 1
+      YValues.Order = loNone
+    end
+    object serVco1M: TFastLineSeries
+      Marks.ArrowLength = 8
+      Marks.Frame.Color = clGreen
+      Marks.Frame.Style = psDash
+      Marks.Visible = False
+      SeriesColor = clGreen
+      Title = 'Model'
+      LinePen.Color = clGreen
+      XValues.DateTime = False
+      XValues.Name = 'X'
+      XValues.Multiplier = 1
+      XValues.Order = loAscending
+      YValues.DateTime = False
+      YValues.Name = 'Y'
+      YValues.Multiplier = 1
+      YValues.Order = loNone
+    end
+  end
+end
