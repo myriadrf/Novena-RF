@@ -50,10 +50,39 @@ void NovenaRF::initRFIC(void)
 
     _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), true/*Rx*/);
     _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), false/*Tx*/);
+
+    _lms6ctrl->SetParam(lms6::STXEN, 1); //enable transmitter
+    _lms6ctrl->SetParam(lms6::SRXEN, 1); //enable receiver
+
+    //enable all the things
+    _lms6ctrl->SetParam(lms6::EN_TOP, 1);
+    _lms6ctrl->SetParam(lms6::EN_RXPLL, 1);
+    _lms6ctrl->SetParam(lms6::EN_TXPLL, 1);
+    _lms6ctrl->SetParam(lms6::EN_ADC_DAC, 1);
+    _lms6ctrl->SetParam(lms6::EN_TXRF, 1);
+    _lms6ctrl->SetParam(lms6::EN_RXVGA2, 1);
+    _lms6ctrl->SetParam(lms6::EN_RXFE, 1);
+    _lms6ctrl->SetParam(lms6::EN_RXLPF, 1);
+    _lms6ctrl->SetParam(lms6::EN_TXLPF, 1);
+
+    //bypass LPF by default (0.0 is bypass)
+    this->setBandwidth(SOAPY_SDR_TX, 0, 0.0);
+    this->setBandwidth(SOAPY_SDR_RX, 0, 0.0);
+
+    //initialize to minimal gain settings
+    this->setGain(SOAPY_SDR_TX, 0, 0.0);
+    this->setGain(SOAPY_SDR_RX, 0, 0.0);
+
+    //tune to some default to init values
+    this->setFrequency(SOAPY_SDR_TX, 0, 1e9, SoapySDR::Kwargs());
+    this->setFrequency(SOAPY_SDR_RX, 0, 1e9, SoapySDR::Kwargs());
 }
 
 void NovenaRF::exitRFIC(void)
 {
+    _lms6ctrl->SetParam(lms6::STXEN, 0); //disable transmitter
+    _lms6ctrl->SetParam(lms6::SRXEN, 0); //disable receiver
+
     delete _lms6ctrl;
     _lms6ctrl = nullptr;
 }
@@ -63,32 +92,116 @@ void NovenaRF::exitRFIC(void)
  ******************************************************************/
 std::vector<std::string> NovenaRF::listGains(const int direction, const size_t channel) const
 {
-    
+    std::vector<std::string> gains;
+    if (direction == SOAPY_SDR_TX)
+    {
+        gains.push_back("VGA1");
+        gains.push_back("VGA2");
+    }
+    if (direction == SOAPY_SDR_RX)
+    {
+        gains.push_back("VGA2");
+        gains.push_back("LNA");
+    }
+    return gains;
 }
+
+#define MinMaxClip(minimum, maximum, value) \
+    std::max(minimum, std::min(maximum, value))
 
 void NovenaRF::setGain(const int direction, const size_t channel, const double value)
 {
-    
+    //distribute gain automatically
+    //for tx distribute to VGA1 first
+    if (direction == SOAPY_SDR_TX)
+    {
+        if (value > 31.0)
+        {
+            this->setGain(direction, channel, "VGA1", -4.0);
+            this->setGain(direction, channel, "VGA2", value-31.0);
+        }
+        else
+        {
+            this->setGain(direction, channel, "VGA1", value-35.0);
+            this->setGain(direction, channel, "VGA2", 0.0);
+        }
+    }
+    //for rx distribute to LNA first
+    if (direction == SOAPY_SDR_RX)
+    {
+        if (value > 6.0)
+        {
+            this->setGain(direction, channel, "LNA", 6.0);
+            this->setGain(direction, channel, "VGA2", value-6.0);
+        }
+        else
+        {
+            this->setGain(direction, channel, "LNA", 0.0);
+            this->setGain(direction, channel, "VGA2", value);
+        }
+    }
 }
 
 void NovenaRF::setGain(const int direction, const size_t channel, const std::string &name, const double value)
 {
-    
+    if (direction == SOAPY_SDR_TX and name == "VGA1")
+    {
+        const double regVal(MinMaxClip(-35.0, -4.0, value));
+        _lms6ctrl->SetParam(lms6::VGA1GAIN, lrint(regVal+35.0));
+    }
+    if (direction == SOAPY_SDR_TX and name == "VGA2")
+    {
+        const double regVal(MinMaxClip(0.0, 25.0, value));
+        _lms6ctrl->SetParam(lms6::VGA2GAIN_TXVGA2, lrint(regVal));
+    }
+    if (direction == SOAPY_SDR_RX and name == "VGA2")
+    {
+        const double regVal(MinMaxClip(0.0, 30.0, value));
+        _lms6ctrl->SetParam(lms6::VGA2GAIN_RXVGA2, lrint(regVal/3.0));
+    }
+    if (direction == SOAPY_SDR_RX and name == "LNA")
+    {
+        const double regVal(MinMaxClip(0.0, 6.0, value));
+        _lms6ctrl->SetParam(lms6::G_LNA_RXFE, 2 | lrint(regVal/6.0));
+    }
 }
 
 double NovenaRF::getGain(const int direction, const size_t channel, const std::string &name) const
 {
-    
+    if (direction == SOAPY_SDR_TX and name == "VGA1")
+    {
+        return _lms6ctrl->GetParam(lms6::VGA1GAIN) - 35.0;
+    }
+    if (direction == SOAPY_SDR_TX and name == "VGA2")
+    {
+        return _lms6ctrl->GetParam(lms6::VGA2GAIN_TXVGA2);
+    }
+    if (direction == SOAPY_SDR_RX and name == "VGA2")
+    {
+        return _lms6ctrl->GetParam(lms6::VGA2GAIN_RXVGA2)*3.0;
+    }
+    if (direction == SOAPY_SDR_RX and name == "LNA")
+    {
+        return (_lms6ctrl->GetParam(lms6::G_LNA_RXFE) & 0x1)*6.0;
+    }
+    return SoapySDR::Device::getGain(direction, channel, name);
 }
 
 SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel) const
 {
-    
+    //overall range presented to the user
+    if (direction == SOAPY_SDR_TX) return SoapySDR::Range(0.0, 56.0);
+    if (direction == SOAPY_SDR_RX) return SoapySDR::Range(0.0, 36.0);
+    return SoapySDR::Device::getGainRange(direction, channel);
 }
 
 SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel, const std::string &name) const
 {
-    
+    if (direction == SOAPY_SDR_TX and name == "VGA1") return SoapySDR::Range(-35.0, -4.0);
+    if (direction == SOAPY_SDR_TX and name == "VGA2") return SoapySDR::Range(0.0, 25.0);
+    if (direction == SOAPY_SDR_RX and name == "VGA2") return SoapySDR::Range(0.0, 30.0);
+    if (direction == SOAPY_SDR_RX and name == "LNA") return SoapySDR::Range(0.0, 6.0);
+    return SoapySDR::Device::getGainRange(direction, channel, name);
 }
 
 /*******************************************************************
@@ -103,6 +216,24 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
     _cachedTuneResults[direction] = realFreq;
+
+    //select the TX PAs or RX LNAs based on frequency
+    //these calls also modify external RF switch GPIOs
+    if (direction == SOAPY_SDR_TX)
+    {
+        //1: High band output (1500 - 3800 MHz)
+        //2: Broadband output
+        if (realFreq >= 1500e6) _lms6ctrl->SetParam(lms6::PA_EN, 1);
+        else                    _lms6ctrl->SetParam(lms6::PA_EN, 2);
+    }
+    else
+    {
+        //1: Low band input (300 - 2200 MHz)
+        //2: High band input (1500-3800MHz)
+        //3: Broadband input
+        if (realFreq >= 1850e6) _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 1);
+        else                    _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 2);
+    }
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const
@@ -132,6 +263,10 @@ void NovenaRF::setBandwidth(const int direction, const size_t channel, const dou
     //write the setting
     const auto reg = (direction == SOAPY_SDR_RX)?lms6::BWC_LPF_RXLPF:lms6::BWC_LPF_TXLPF;
     _lms6ctrl->SetParam(reg, val);
+
+    //special case: bypass when BW == 0
+    const auto regByp = (direction == SOAPY_SDR_RX)?lms6::BYP_EN_LPF_RXLPF:lms6::BYP_EN_LPF_TXLPF;
+    _lms6ctrl->SetParam(regByp, (bw==0.0)?1:0);
 }
 
 double NovenaRF::getBandwidth(const int direction, const size_t channel) const
