@@ -52,7 +52,9 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
     gpio_export(FPGA_RESET_GPIO);
     gpio_set_dir(FPGA_RESET_GPIO, 1);
     gpio_set_value(FPGA_RESET_GPIO, 0);
+    usleep(100000);
     gpio_set_value(FPGA_RESET_GPIO, 1);
+    usleep(100000);
 
     //open the specified FPGA image
     SoapySDR::logf(SOAPY_SDR_INFO, "Loading FPGA image %s", fpgaImage.c_str());

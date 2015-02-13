@@ -8,7 +8,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "NovenaConstants.hpp"
+#include "NovenaRegs.hpp"
 #include "NovenaDMA.hpp"
 
 #include <SoapySDR/Device.hpp>
