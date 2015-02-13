@@ -79,7 +79,7 @@ enum eCMD_STATUS
 
 static const char  status_text[][32]= {"Undefined/Failure", "Completed", "Unknown command", "Busy", "Too many blocks", "Error", "Wrong order"};
 
-static const char* status2string(const int status)
+static inline const char* status2string(const int status)
 {
     if(status >= 0 && status < STATUS_COUNT)
         return status_text[status];

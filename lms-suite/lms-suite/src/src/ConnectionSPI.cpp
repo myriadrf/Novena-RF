@@ -22,6 +22,7 @@
 #include <sys/ioctl.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
+#include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #endif
 
@@ -45,11 +46,11 @@ bool IsNovenaBoard()
     messages[0].addr = 0xac>>1;
     messages[0].flags = 0;
     messages[0].len = sizeof(set_addr_buf);
-    messages[0].buf = set_addr_buf;
+    messages[0].buf = (unsigned char*)set_addr_buf;
     messages[1].addr = 0xac>>1;
     messages[1].flags = I2C_M_RD;
     messages[1].len = count;
-    messages[1].buf = data;
+    messages[1].buf = (unsigned char*)data;
     session.msgs = messages;
     session.nmsgs = 2;
 
