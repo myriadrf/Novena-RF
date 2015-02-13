@@ -111,6 +111,7 @@ static inline int gpio_poll_irq(int fd, long timeout_ms);
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <dirent.h> //opendir
 
  /****************************************************************
  * Constants
@@ -126,7 +127,12 @@ static inline int gpio_export(unsigned int gpio)
 {
 	int fd, len;
 	char buf[MAX_BUF];
- 
+
+	//check for already exported
+	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR  "/gpio%d", gpio);
+	if (len < 0) return len;
+	if (opendir(buf) != NULL) return 0;
+
 	fd = open(SYSFS_GPIO_DIR "/export", O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/export");

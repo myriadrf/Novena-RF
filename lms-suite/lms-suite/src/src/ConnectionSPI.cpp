@@ -77,19 +77,27 @@ bool IsNovenaBoard()
 #include <fstream>
 #include <sstream>
 #include "CommonUtilities.h"
+#include <dirent.h> //opendir
 
 ConnectionSPI::ConnectionSPI() : cSPI_SPEED_HZ(4000000)
 {
     fd = -1;
     m_connectionType = SPI_PORT;
     std::fstream gpio;
-    //export SEN pin
-    gpio.open("/sys/class/gpio/export", ios::out);
-    if(gpio.good())
+    //export SEN pin -- if not already exported
+    if (opendir("/sys/class/gpio/gpio122") == NULL)
     {
-        gpio << 122;
-        gpio.flush();
-        gpio.close();
+        gpio.open("/sys/class/gpio/export", ios::out);
+        if(gpio.good())
+        {
+            gpio << 122;
+            gpio.flush();
+            gpio.close();
+        }
+    }
+    //if the export succeeded, set the direction and value
+    if (opendir("/sys/class/gpio/gpio122") != NULL)
+    {
         gpio.open("/sys/class/gpio/gpio122/direction", ios::out);
         gpio << "out";
         gpio.flush();
