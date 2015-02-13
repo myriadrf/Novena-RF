@@ -213,8 +213,11 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     unsigned Nint, Nfrac, iVco;
     int divider;
 
-    _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency, realFreq, Nint, Nfrac, iVco, fVco, divider);
+    _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
+
+    //convert to Hz and stash for querying later
+    realFreq *= 1e6;
     _cachedTuneResults[direction] = realFreq;
 
     //select the TX PAs or RX LNAs based on frequency
@@ -225,6 +228,7 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
         //2: Broadband output
         if (realFreq >= 1500e6) _lms6ctrl->SetParam(lms6::PA_EN, 1);
         else                    _lms6ctrl->SetParam(lms6::PA_EN, 2);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: TxTune(%f MHz), actual = %f MHz, PA_EN=%d", frequency/1e6, realFreq/1e6, _lms6ctrl->GetParam(lms6::PA_EN));
     }
     else
     {
@@ -233,6 +237,7 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
         //3: Broadband input
         if (realFreq >= 1850e6) _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 1);
         else                    _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 2);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: RxTune(%f MHz), actual = %f MHz, LNASEL=%d", frequency/1e6, realFreq/1e6, _lms6ctrl->GetParam(lms6::LNASEL_RXFE));
     }
 }
 

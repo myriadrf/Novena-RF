@@ -28,7 +28,12 @@ void NovenaRF::initDMAChannels(void)
         NRF_DMA_DIR_MM2S, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
         _deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
 
-    this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
+    //init remainder state for rx
+    _remainderHandle = -1;
+    _remainderSamps = 0;
+    _remainderBuff = nullptr;
+
+    //this->writeRegister(REG_LMS_TRX_LOOPBACK, 1); //loopback for debug
 }
 
 /*******************************************************************
@@ -140,9 +145,6 @@ int NovenaRF::activateStream(
 {
     if (int(stream) == SOAPY_SDR_RX)
     {
-        _remainderHandle = -1;
-        _remainderSamps = 0;
-        _remainderBuff = nullptr;
         return this->sendControlMessage(0xff,
             (flags & SOAPY_SDR_HAS_TIME) != 0, //timeFlag
             (flags & SOAPY_SDR_END_BURST) != 0, //burstFlag
