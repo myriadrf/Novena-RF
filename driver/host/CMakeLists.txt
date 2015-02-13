@@ -19,6 +19,34 @@ endif(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 
 ########################################################################
+# lms suite sources
+########################################################################
+set(LMS_SUITE_BASE ${PROJECT_SOURCE_DIR}/../../lms-suite/lms-suite/src)
+get_filename_component(LMS_SUITE_BASE ${LMS_SUITE_BASE} ABSOLUTE)
+message(STATUS "LMS_SUITE_BASE: ${LMS_SUITE_BASE}")
+
+#glob for sources
+file(GLOB LMS_SOURCES "${LMS_SUITE_BASE}/src/*.cpp")
+file(GLOB LMS6_SOURCES "${LMS_SUITE_BASE}/src/lms6/*.cpp")
+list(APPEND LMS_SOURCES ${LMS6_SOURCES})
+
+#lms include directories
+include_directories(${LMS_SUITE_BASE}/include)
+include_directories(${LMS_SUITE_BASE}/include/lms6)
+
+#hide noisy warnings
+set_source_files_properties(${LMS_SOURCES}
+    PROPERTIES "COMPILE_FLAGS" "-Wno-unused-parameter")
+
+#libraries: pthread, and usb
+#usb not really needed, but its part of the build
+#it should be ifdef'd out to reduce dependencies
+set(LMS_LIBRARIES
+    pthread
+    usb-1.0
+)
+
+########################################################################
 # build the module
 ########################################################################
 find_package(SoapySDR CONFIG)
@@ -40,4 +68,7 @@ SOAPY_SDR_MODULE_UTIL(
         Streaming.cpp
         NovenaRF.cpp
         LoadFPGA.cpp
+        ${LMS_SOURCES}
+    LIBRARIES
+        ${LMS_LIBRARIES}
 )
