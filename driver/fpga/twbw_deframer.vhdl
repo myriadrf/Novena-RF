@@ -302,7 +302,7 @@ begin
                     state <= STATE_HDR1_IN;
                 end if;
             elsif (underflow = '1') then
-                state <= STATE_TX_IDLE;
+                state <= STATE_STAT_OUT;
             end if;
 
         when STATE_HDR1_IN =>

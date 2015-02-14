@@ -9,6 +9,8 @@
 
 #include "NovenaRF.hpp"
 #include "LMS6002_MainControl.h"
+#include "CompoundOperations.h"
+#include "CompoundOperations.h"
 
 /***********************************************************************
  * Log handler from the lms suite
@@ -46,7 +48,7 @@ void NovenaRF::initRFIC(void)
     //main control owns the connection manager
     _lms6ctrl = new lms6::LMS6002_MainControl(ser);
     _lms6ctrl->ResetChip(LMS_RST_PULSE);
-    _lms6ctrl->LoadAdditionalSettings();
+    _lms6ctrl->NewProject();
 
     _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), true/*Rx*/);
     _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), false/*Tx*/);
@@ -60,28 +62,32 @@ void NovenaRF::initRFIC(void)
     _lms6ctrl->SetParam(lms6::EN_TXPLL, 1);
     _lms6ctrl->SetParam(lms6::EN_ADC_DAC, 1);
     _lms6ctrl->SetParam(lms6::EN_TXRF, 1);
-    _lms6ctrl->SetParam(lms6::EN_RXVGA2, 1);
     _lms6ctrl->SetParam(lms6::EN_RXFE, 1);
     _lms6ctrl->SetParam(lms6::EN_RXLPF, 1);
     _lms6ctrl->SetParam(lms6::EN_TXLPF, 1);
+    _lms6ctrl->SetParam(lms6::EN_RXVGA2, 1);
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxVGA2PowerON();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_LNAPowerON();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxLpfPowerON();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxFePowerON();
 
-    //bypass LPF by default (0.0 is bypass)
-    this->setBandwidth(SOAPY_SDR_TX, 0, 0.0);
-    this->setBandwidth(SOAPY_SDR_RX, 0, 0.0);
+    //bypass LPF by default with large BW
+    this->setBandwidth(SOAPY_SDR_TX, 0, 30.0e6);
+    this->setBandwidth(SOAPY_SDR_RX, 0, 30.0e6);
 
     //initialize to minimal gain settings
     this->setGain(SOAPY_SDR_TX, 0, 0.0);
     this->setGain(SOAPY_SDR_RX, 0, 0.0);
-
-    //tune to some default to init values
-    this->setFrequency(SOAPY_SDR_TX, 0, 1e9, SoapySDR::Kwargs());
-    this->setFrequency(SOAPY_SDR_RX, 0, 1e9, SoapySDR::Kwargs());
 }
 
 void NovenaRF::exitRFIC(void)
 {
     _lms6ctrl->SetParam(lms6::STXEN, 0); //disable transmitter
     _lms6ctrl->SetParam(lms6::SRXEN, 0); //disable receiver
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxVGA2PowerOFF();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_LNAPowerOFF();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxLpfPowerOFF();
+    lms6::CompoundOperations(_lms6ctrl).CustSet_RxFePowerOFF();
 
     delete _lms6ctrl;
     _lms6ctrl = nullptr;
@@ -187,6 +193,13 @@ double NovenaRF::getGain(const int direction, const size_t channel, const std::s
     return SoapySDR::Device::getGain(direction, channel, name);
 }
 
+double NovenaRF::getGain(const int direction, const size_t channel) const
+{
+    if (direction == SOAPY_SDR_TX) return this->getGain(direction, channel, "VGA1") + 35 + this->getGain(direction, channel, "VGA2");
+    if (direction == SOAPY_SDR_RX) return this->getGain(direction, channel, "VGA2") + this->getGain(direction, channel, "LNA");
+    return SoapySDR::Device::getGain(direction, channel);
+}
+
 SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel) const
 {
     //overall range presented to the user
@@ -216,34 +229,30 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
 
-    //convert to Hz and stash for querying later
-    realFreq *= 1e6;
-    _cachedTuneResults[direction] = realFreq;
-
     //select the TX PAs or RX LNAs based on frequency
     //these calls also modify external RF switch GPIOs
     if (direction == SOAPY_SDR_TX)
     {
         //1: High band output (1500 - 3800 MHz)
         //2: Broadband output
-        if (realFreq >= 1500e6) _lms6ctrl->SetParam(lms6::PA_EN, 1);
+        if (realFreq >= 1500) _lms6ctrl->SetParam(lms6::PA_EN, 1);
         else                    _lms6ctrl->SetParam(lms6::PA_EN, 2);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: TxTune(%f MHz), actual = %f MHz, PA_EN=%d", frequency/1e6, realFreq/1e6, _lms6ctrl->GetParam(lms6::PA_EN));
+        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: TxTune(%f MHz), actual = %f MHz, PA_EN=%d", frequency/1e6, realFreq, _lms6ctrl->GetParam(lms6::PA_EN));
     }
     else
     {
         //1: Low band input (300 - 2200 MHz)
         //2: High band input (1500-3800MHz)
         //3: Broadband input
-        if (realFreq >= 1850e6) _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 1);
-        else                    _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 2);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: RxTune(%f MHz), actual = %f MHz, LNASEL=%d", frequency/1e6, realFreq/1e6, _lms6ctrl->GetParam(lms6::LNASEL_RXFE));
+        if (realFreq >= 1850) lms6::CompoundOperations(_lms6ctrl).SetLnaChain(1);
+        else                    lms6::CompoundOperations(_lms6ctrl).SetLnaChain(2);
+        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: RxTune(%f MHz), actual = %f MHz, LNASEL=%d", frequency/1e6, realFreq, _lms6ctrl->GetParam(lms6::LNASEL_RXFE));
     }
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const
 {
-    return _cachedTuneResults.at(direction);
+    return _lms6ctrl->GetFrequency(direction == SOAPY_SDR_RX)*1e6;
 }
 
 SoapySDR::RangeList NovenaRF::getFrequencyRange(const int direction, const size_t channel) const
@@ -265,13 +274,16 @@ void NovenaRF::setBandwidth(const int direction, const size_t channel, const dou
         val++;
     }
 
+    //bypass when BW is larger than max filter
+    const bool bypass = (bw/2.0 > 14e6);
+    if (direction == SOAPY_SDR_TX and bypass)     lms6::CompoundOperations(_lms6ctrl).CustSet_BypassTxLpfON();
+    if (direction == SOAPY_SDR_TX and not bypass) lms6::CompoundOperations(_lms6ctrl).CustSet_BypassTxLpfOFF();
+    if (direction == SOAPY_SDR_RX and bypass)     lms6::CompoundOperations(_lms6ctrl).CustSet_BypassRxLpfON();
+    if (direction == SOAPY_SDR_RX and not bypass) lms6::CompoundOperations(_lms6ctrl).CustSet_BypassRxLpfOFF();
+
     //write the setting
     const auto reg = (direction == SOAPY_SDR_RX)?lms6::BWC_LPF_RXLPF:lms6::BWC_LPF_TXLPF;
     _lms6ctrl->SetParam(reg, val);
-
-    //special case: bypass when BW == 0
-    const auto regByp = (direction == SOAPY_SDR_RX)?lms6::BYP_EN_LPF_RXLPF:lms6::BYP_EN_LPF_TXLPF;
-    _lms6ctrl->SetParam(regByp, (bw==0.0)?1:0);
 }
 
 double NovenaRF::getBandwidth(const int direction, const size_t channel) const
@@ -300,5 +312,6 @@ std::vector<double> NovenaRF::listBandwidths(const int direction, const size_t c
     bws.push_back(1.25e6);
     bws.push_back(0.875e6);
     bws.push_back(0.75e6);
+    for (auto &bw : bws) bw *= 2; //convert to complex width in Hz
     return bws;
 }
