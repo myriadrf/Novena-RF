@@ -49,9 +49,11 @@ void NovenaRF::initRFIC(void)
     _lms6ctrl = new lms6::LMS6002_MainControl(ser);
     _lms6ctrl->ResetChip(LMS_RST_PULSE);
     _lms6ctrl->NewProject();
+    SoapySDR::logf(SOAPY_SDR_INFO, "LMS6002: ver=0x%x, rev=0x%x",
+        _lms6ctrl->GetParam(lms6::VER), _lms6ctrl->GetParam(lms6::REV));
 
-    _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), true/*Rx*/);
-    _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate(), false/*Tx*/);
+    _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate()/1e6, true/*Rx*/);
+    _lms6ctrl->SetReferenceFrequency(this->getMasterClockRate()/1e6, false/*Tx*/);
 
     _lms6ctrl->SetParam(lms6::STXEN, 1); //enable transmitter
     _lms6ctrl->SetParam(lms6::SRXEN, 1); //enable receiver
@@ -86,6 +88,7 @@ void NovenaRF::initRFIC(void)
 
 void NovenaRF::exitRFIC(void)
 {
+    //_lms6ctrl->SaveToFile("/tmp/lms6.txt", false);
     _lms6ctrl->SetParam(lms6::STXEN, 0); //disable transmitter
     _lms6ctrl->SetParam(lms6::SRXEN, 0); //disable receiver
     lms6::CompoundOperations(_lms6ctrl).CustSet_RxVGA2PowerOFF();
@@ -233,6 +236,7 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
     SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: %sTune(%f MHz), actual = %f MHz", (direction==SOAPY_SDR_TX)?"TX":"RX", frequency/1e6, realFreq);
+    //SoapySDR::logf(SOAPY_SDR_TRACE, "fVco=%f, Nint=%d, Nfrac=%d, iVco=%d, divider=%d", fVco, Nint, Nfrac, iVco, divider);
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const
