@@ -129,15 +129,11 @@ public:
     /*******************************************************************
      * Antenna API
      ******************************************************************/
-    std::vector<std::string> listAntennas(const int direction, const size_t channel) const
-    {
-        return std::vector<std::string>(1, this->getAntenna(direction, channel));
-    }
+    std::vector<std::string> listAntennas(const int direction, const size_t channel) const;
 
-    std::string getAntenna(const int direction, const size_t) const
-    {
-        return (direction == SOAPY_SDR_TX)?"TX":"RX";
-    }
+    void setAntenna(const int, const size_t, const std::string &);
+
+    std::string getAntenna(const int direction, const size_t) const;
 
     /*******************************************************************
      * Frontend corrections API

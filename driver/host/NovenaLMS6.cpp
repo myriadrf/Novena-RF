@@ -78,6 +78,10 @@ void NovenaRF::initRFIC(void)
     //initialize to minimal gain settings
     this->setGain(SOAPY_SDR_TX, 0, 0.0);
     this->setGain(SOAPY_SDR_RX, 0, 0.0);
+
+    //initialize antenna to broadband
+    this->setAntenna(SOAPY_SDR_TX, 0, "BB");
+    this->setAntenna(SOAPY_SDR_RX, 0, "BB");
 }
 
 void NovenaRF::exitRFIC(void)
@@ -228,26 +232,7 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
 
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
-
-    //select the TX PAs or RX LNAs based on frequency
-    //these calls also modify external RF switch GPIOs
-    if (direction == SOAPY_SDR_TX)
-    {
-        //1: High band output (1500 - 3800 MHz)
-        //2: Broadband output
-        if (realFreq >= 1500) _lms6ctrl->SetParam(lms6::PA_EN, 1);
-        else                    _lms6ctrl->SetParam(lms6::PA_EN, 2);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: TxTune(%f MHz), actual = %f MHz, PA_EN=%d", frequency/1e6, realFreq, _lms6ctrl->GetParam(lms6::PA_EN));
-    }
-    else
-    {
-        //1: Low band input (300 - 2200 MHz)
-        //2: High band input (1500-3800MHz)
-        //3: Broadband input
-        if (realFreq >= 1850) lms6::CompoundOperations(_lms6ctrl).SetLnaChain(1);
-        else                    lms6::CompoundOperations(_lms6ctrl).SetLnaChain(2);
-        SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: RxTune(%f MHz), actual = %f MHz, LNASEL=%d", frequency/1e6, realFreq, _lms6ctrl->GetParam(lms6::LNASEL_RXFE));
-    }
+    SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: %sTune(%f MHz), actual = %f MHz", (direction==SOAPY_SDR_TX)?"TX":"RX", frequency/1e6, realFreq);
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const
@@ -314,4 +299,68 @@ std::vector<double> NovenaRF::listBandwidths(const int direction, const size_t c
     bws.push_back(0.75e6);
     for (auto &bw : bws) bw *= 2; //convert to complex width in Hz
     return bws;
+}
+
+/*******************************************************************
+ * Antenna API
+ ******************************************************************/
+std::vector<std::string> NovenaRF::listAntennas(const int direction, const size_t channel) const
+{
+    std::vector<std::string> ants;
+    if (direction == SOAPY_SDR_TX)
+    {
+        //1: High band output (1500 - 3800 MHz)
+        //2: Broadband output
+        ants.push_back("HB");
+        ants.push_back("BB");
+    }
+    if (direction == SOAPY_SDR_RX)
+    {
+        //1: Low band input (300 - 2200 MHz)
+        //2: High band input (1500-3800MHz)
+        //3: Broadband input
+        ants.push_back("LB");
+        ants.push_back("HB");
+        ants.push_back("BB");
+    }
+    return ants;
+}
+
+void NovenaRF::setAntenna(const int direction, const size_t channel, const std::string &name)
+{
+    //select the TX PAs or RX LNAs based on frequency
+    //these calls also modify external RF switch GPIOs
+    if (direction == SOAPY_SDR_TX)
+    {
+        if (name == "HB") _lms6ctrl->SetParam(lms6::PA_EN, 1);
+        else              _lms6ctrl->SetParam(lms6::PA_EN, 2);
+    }
+    else
+    {
+        if      (name == "LB") _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 1);
+        else if (name == "HB") _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 2);
+        else                   _lms6ctrl->SetParam(lms6::LNASEL_RXFE, 3);
+    }
+}
+
+std::string NovenaRF::getAntenna(const int direction, const size_t channel) const
+{
+    if (direction == SOAPY_SDR_TX)
+    {
+        switch (_lms6ctrl->GetParam(lms6::PA_EN))
+        {
+        case 1: return "HB";
+        default: return "BB";
+        }
+    }
+    if (direction == SOAPY_SDR_RX)
+    {
+        switch (_lms6ctrl->GetParam(lms6::LNASEL_RXFE))
+        {
+        case 1: return "LB";
+        case 2: return "HB";
+        default: return "BB";
+        }
+    }
+    return SoapySDR::Device::getAntenna(direction, channel);
 }
