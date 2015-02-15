@@ -63,7 +63,7 @@ begin
     --rx data registered
     process (lms_clk) begin
     if (rising_edge(lms_clk)) then
-        adc_valid_int <= rxiqsel_r;
+        adc_valid_int <= not rxiqsel_r;
         rxd_r_prev <= rxd_r;
         adc_data(31 downto 20) <= rxd_r_prev;
         adc_data(19 downto 16) <= "0000";
@@ -84,10 +84,10 @@ begin
         if (dac_ready_int = '1') then
             txd_r_next <= dac_data(15 downto 4);
             txd_r <= dac_data(31 downto 20);
-            txiqsel_r <= '0';
+            txiqsel_r <= '1';
         else
             txd_r <= txd_r_next;
-            txiqsel_r <= '1';
+            txiqsel_r <= '0';
         end if;
     end if;
     end process;

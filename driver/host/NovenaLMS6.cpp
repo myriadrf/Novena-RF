@@ -9,8 +9,8 @@
 
 #include "NovenaRF.hpp"
 #include "LMS6002_MainControl.h"
-#include "CompoundOperations.h"
-#include "CompoundOperations.h"
+#include "lms6/CompoundOperations.h"
+#include "lms6/Algorithms.h"
 
 /***********************************************************************
  * Log handler from the lms suite
@@ -84,6 +84,15 @@ void NovenaRF::initRFIC(void)
     //initialize antenna to broadband
     this->setAntenna(SOAPY_SDR_TX, 0, "BB");
     this->setAntenna(SOAPY_SDR_RX, 0, "BB");
+
+    //calibration
+    lms6::Algorithms(_lms6ctrl).CalibrateLPFCore();
+
+    //set expected interface mod
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_9, 0); //rx fsync polarity
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_8, 0); //rx interleave mode
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_6, 1); //tx fsync polarity (tx needs this swap for an unknown reason)
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_5, 0); //tx interleave mode
 }
 
 void NovenaRF::exitRFIC(void)
@@ -237,6 +246,9 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
     SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: %sTune(%f MHz), actual = %f MHz", (direction==SOAPY_SDR_TX)?"TX":"RX", frequency/1e6, realFreq);
     //SoapySDR::logf(SOAPY_SDR_TRACE, "fVco=%f, Nint=%d, Nfrac=%d, iVco=%d, divider=%d", fVco, Nint, Nfrac, iVco, divider);
+
+    if (direction == SOAPY_SDR_TX) lms6::Algorithms(_lms6ctrl).CalibrateTx();
+    if (direction == SOAPY_SDR_RX) lms6::Algorithms(_lms6ctrl).CalibrateRx();
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const
