@@ -61,6 +61,8 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
+add_compile_options(-mfloat-abi=hard -mfpu=neon)
+
 include_directories(../kernel)
 
 SOAPY_SDR_MODULE_UTIL(

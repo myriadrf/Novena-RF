@@ -90,9 +90,9 @@ void NovenaRF::initRFIC(void)
 
     //set expected interface mod
     _lms6ctrl->SetParam(lms6::MISC_CTRL_9, 0); //rx fsync polarity
-    _lms6ctrl->SetParam(lms6::MISC_CTRL_8, 0); //rx interleave mode
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_8, 1); //rx interleave mode (swap for std::complex host format)
     _lms6ctrl->SetParam(lms6::MISC_CTRL_6, 1); //tx fsync polarity (tx needs this swap for an unknown reason)
-    _lms6ctrl->SetParam(lms6::MISC_CTRL_5, 0); //tx interleave mode
+    _lms6ctrl->SetParam(lms6::MISC_CTRL_5, 1); //tx interleave mode (swap for std::complex host format)
 }
 
 void NovenaRF::exitRFIC(void)

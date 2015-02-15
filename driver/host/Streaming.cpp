@@ -9,6 +9,7 @@
 
 #include "NovenaRF.hpp"
 #include "twbw_helper.h"
+#include <arm_neon.h>
 
 /*******************************************************************
  * Initialize DMA channels
@@ -41,49 +42,53 @@ void NovenaRF::initDMAChannels(void)
  ******************************************************************/
 void convert_cs16_to_word32(const void *inp, void *outp, const size_t n)
 {
-    uint32_t *out = (uint32_t *)outp;
-    const std::complex<const int16_t> *in = (const std::complex<const int16_t> *)inp;
-    for (size_t i = 0; i < n; i++)
-    {
-        uint16_t i16 = in[i].real();
-        uint16_t q16 = in[i].imag();
-        out[i] = (uint32_t(i16) << 16) | q16;
-    }
+    std::memcpy(outp, inp, n*sizeof(uint32_t));
 }
 
 void convert_cf32_to_word32(const void *inp, void *outp, const size_t n)
 {
-    uint32_t *out = (uint32_t *)outp;
-    const std::complex<const float> *in = (const std::complex<const float> *)inp;
-    for (size_t i = 0; i < n; i++)
+    const float *in = (const float *)inp;
+    int16_t *out = (int16_t *)outp;
+    for (size_t i = 0; i < n; i+=2) //simd convert 2 complex samples
     {
-        uint16_t i16 = int16_t(in[i].real()*30e3f);
-        uint16_t q16 = int16_t(in[i].imag()*30e3f);
-        out[i] = (uint32_t(i16) << 16) | q16;
+        float32x4_t sampsf = vld1q_f32(in);
+        float32x4_t scaled = vmulq_n_f32(sampsf, float32_t(30e3f));
+        int32x4_t samps32 = vcvtq_s32_f32(scaled);
+        int16x4_t samps16 = vmovn_s32(samps32);
+        vst1_s16(out, samps16);
+        out += 4;
+        in += 4;
+    }
+    if ((n % 2) == 1) //remainder
+    {
+        *(out++) = int16_t(*(in++)*30e3f);
+        *(out++) = int16_t(*(in++)*30e3f);
     }
 }
 
 void convert_word32_to_cs16(const void *inp, void *outp, const size_t n)
 {
-    const uint32_t *in = (const uint32_t *)inp;
-    std::complex<int16_t> *out = (std::complex<int16_t> *)outp;
-    for (size_t i = 0; i < n; i++)
-    {
-        int16_t i16 = uint16_t(in[i] >> 16);
-        int16_t q16 = uint16_t(in[i] & 0xffff);
-        out[i] = std::complex<int16_t>(i16, q16);
-    }
+    std::memcpy(outp, inp, n*sizeof(uint32_t));
 }
 
 void convert_word32_to_cf32(const void *inp, void *outp, const size_t n)
 {
-    const uint32_t *in = (const uint32_t *)inp;
-    std::complex<float> *out = (std::complex<float> *)outp;
-    for (size_t i = 0; i < n; i++)
+    const int16_t *in = (const int16_t *)inp;
+    float *out = (float *)outp;
+    for (size_t i = 0; i < n; i+=2) //simd convert 2 complex samples
     {
-        int16_t i16 = uint16_t(in[i] >> 16);
-        int16_t q16 = uint16_t(in[i] & 0xffff);
-        out[i] = std::complex<float>(i16/30e3f, q16/30e3f);
+        int16x4_t samps16 = vld1_s16(in);
+        int32x4_t samps32 = vmovl_s16(samps16);
+        float32x4_t sampsf = vcvtq_f32_s32(samps32);
+        float32x4_t scaled = vmulq_n_f32(sampsf, float32_t(1.0/30e3f));
+        vst1q_f32(out, scaled);
+        out += 4;
+        in += 4;
+    }
+    if ((n % 2) == 1) //remainder
+    {
+        *(out++) = float(*(in++)/30e3f);
+        *(out++) = float(*(in++)/30e3f);
     }
 }
 
