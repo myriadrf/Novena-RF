@@ -45,10 +45,19 @@ There is a compiled FPGA image and kernel module in binary/
 To install the files and to set the system permissions:
 
 ```
-sudo binary/prepare_novena_rf.sh
+cd Novena-RF/driver/binary
+sudo ./prepare_novena_rf.sh
 ```
 
 Note: this script should be run after each reboot to set permissions and to load the module.
+
+## Hello Novena RF
+
+Check that the installation detects NovenaRF support:
+
+```
+SoapySDRUtil --make="driver=novena"
+```
 
 ## Advanced
 
