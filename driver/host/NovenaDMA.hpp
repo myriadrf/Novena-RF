@@ -77,6 +77,7 @@ public:
 
         //quick check without sleeping
         if (((*_statReg) >> 15) != 0) return true;
+        if (timeoutUs <= 0) return false;
 
         //enable the irq and wait on it
         *_setIrq = (1 << _irqBit);

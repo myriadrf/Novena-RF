@@ -126,6 +126,13 @@ public:
         const long timeoutUs
     );
 
+    int readStreamStatus(
+        SoapySDR::Stream *stream,
+        size_t &chanMask,
+        int &flags,
+        long long &timeNs,
+        const long timeoutUs);
+
     /*******************************************************************
      * Antenna API
      ******************************************************************/
@@ -268,6 +275,9 @@ private:
     int _remainderHandle;
     size_t _remainderSamps;
     const uint32_t *_remainderBuff;
+
+    //tx streaming
+    bool _userHandlesTxStatus;
 
     //stream configuration
     enum StreamFormat

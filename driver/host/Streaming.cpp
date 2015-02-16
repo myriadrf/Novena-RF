@@ -159,6 +159,7 @@ int NovenaRF::activateStream(
 
     if (int(stream) == SOAPY_SDR_TX)
     {
+        _userHandlesTxStatus = false;
         return 0;
     }
 
@@ -325,7 +326,7 @@ int NovenaRF::readStream(
  * write stream API
  ******************************************************************/
 int NovenaRF::writeStream(
-    SoapySDR::Stream *,
+    SoapySDR::Stream *stream,
     const void * const *buffs,
     const size_t numElems,
     int &flags,
@@ -336,24 +337,14 @@ int NovenaRF::writeStream(
     size_t len = 0;
     static int id = 0;
 
-    //remove any stat reporting
-    while (_deframer0_stat_chan->waitReady(0))
+    //handle stat reporting when user isnt
+    if (not _userHandlesTxStatus)
     {
-        int handle = _deframer0_stat_chan->acquire(len);
-        bool underflow;
-        int idTag = 0;
-        bool hasTime;
-        long long timeTicks;
-        bool timeError;
-        bool burstEnd;
-        twbw_deframer_stat_unpacker(
-            _deframer0_stat_chan->buffer(handle), len,
-            underflow, idTag, hasTime, timeTicks, timeError, burstEnd);
-        //SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
-        if (underflow) SoapySDR::log(SOAPY_SDR_TRACE, "U");
-        if (timeError) SoapySDR::log(SOAPY_SDR_TRACE, "T");
-        if (burstEnd) SoapySDR::log(SOAPY_SDR_TRACE, "B");
-        _deframer0_stat_chan->release(handle, len);
+        #define AUTO_READ_STAT_MAGIC 0x1234ABCD
+        size_t chanMask = 0;
+        int flags_s = AUTO_READ_STAT_MAGIC;
+        long long timeNs_s = 0;
+        this->readStreamStatus(stream, chanMask, flags_s, timeNs_s, 0);
     }
 
     //wait with timeout then acquire
@@ -383,4 +374,55 @@ int NovenaRF::writeStream(
     _deframer0_txd_chan->release(handle, len);
 
     return numSamples;
+}
+
+/*******************************************************************
+ * read status stream API
+ ******************************************************************/
+int NovenaRF::readStreamStatus(
+    SoapySDR::Stream *stream,
+    size_t &chanMask,
+    int &flags,
+    long long &timeNs,
+    const long timeoutUs
+)
+{
+    if (int(stream) != SOAPY_SDR_TX) return SOAPY_SDR_NOT_SUPPORTED;
+
+    //didnt get the magic keyword? then user is calling: disable tx auto stat read
+    if (flags != AUTO_READ_STAT_MAGIC) _userHandlesTxStatus = true;
+
+    chanMask = (1 << 0); //always ch0
+
+    if (not _deframer0_stat_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
+
+    size_t len = 0;
+    int handle = _deframer0_stat_chan->acquire(len);
+    bool underflow;
+    int idTag = 0;
+    bool hasTime;
+    long long timeTicks;
+    bool timeError;
+    bool burstEnd;
+    twbw_deframer_stat_unpacker(
+        _deframer0_stat_chan->buffer(handle), len,
+        underflow, idTag, hasTime, timeTicks, timeError, burstEnd);
+
+    //gather time even if its not valid
+    timeNs = this->ticksToTimeNs(timeTicks);
+
+    //error indicators
+    if (hasTime) flags |= SOAPY_SDR_HAS_TIME;
+    if (burstEnd) flags |= SOAPY_SDR_END_BURST;
+
+    //SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
+    if (underflow) SoapySDR::log(SOAPY_SDR_TRACE, "U");
+    if (timeError) SoapySDR::log(SOAPY_SDR_TRACE, "T");
+    if (burstEnd) SoapySDR::log(SOAPY_SDR_TRACE, "B");
+
+    _deframer0_stat_chan->release(handle, len);
+
+    if (timeError) return SOAPY_SDR_TIME_ERROR;
+    if (underflow) return SOAPY_SDR_UNDERFLOW;
+    return 0;
 }
