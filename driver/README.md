@@ -9,6 +9,41 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 * host/ - host wrapper through a SoapySDR support module
 * binary/ - pre-built FPGA image and kernel module
 
+## Driver properties
+
+### Configurable sample rates
+
+* Max rate: 15.36 Msps
+* Decimations: 1, 2, 4, 8, 16
+* Interpolations: 1, 2, 4, 8, 16
+
+### Selectable TX antenna switches
+
+* "HB" - High band output (1500 - 3800 MHz)
+* "BB" - Broadband output
+
+### Selectable RX antenna switches
+
+* "LB" - Low band input (300 - 2200 MHz)
+* "HB" - High band input (1500 - 3800MHz)
+* "BB" - Broadband input
+
+### TX and RX Baseband filters
+
+* 1.5 MHz to 28.0 MHz
+
+### Adjustable transmit gain
+
+* Overall: 0.0 to 56.0  dB
+* "VGA1": -35.0 to -4.0 dB
+* "VGA2": 0.0 to -25.0 dB
+
+### Adjustable receive gain
+
+* Overall: 0.0  to 36.0  dB
+* "VGA2": 0.0  to 30.0  dB
+* "LNA": 0.0  to 6.0  dB
+
 ## Installing drivers
 
 The following instructions allow one to build the driver for NovenaRF.
