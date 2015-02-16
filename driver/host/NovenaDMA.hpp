@@ -10,9 +10,9 @@
 #pragma once
 #include <cstdlib>
 #include <vector>
-#include <thread>
-#include <chrono>
 #include <atomic>
+#include "NovenaRegs.hpp"
+#include "xilinx_user_gpio.h"
 
 enum NovenaDmaDir
 {
@@ -30,6 +30,8 @@ public:
 
     NovenaDmaChannel(
         const NovenaDmaDir dir,
+        int irqFd,
+        int irqBit,
         void *regs,
         const size_t statRegOff,
         const size_t ctrlRegOff,
@@ -38,6 +40,10 @@ public:
         const size_t numFrames
     ):
         _dir(dir),
+        _irqFd(irqFd),
+        _irqBit(irqBit),
+        _setIrq((uint16_t *)regs + (REG_DMA_SET_IRQ_MASK_ADDR/sizeof(uint16_t))),
+        _clrIrq((uint16_t *)regs + (REG_DMA_CLR_IRQ_MASK_ADDR/sizeof(uint16_t))),
         _statReg((uint16_t *)regs + (statRegOff/sizeof(uint16_t))),
         _ctrlReg((uint16_t *)regs + (ctrlRegOff/sizeof(uint16_t))),
         _mem(mem),
@@ -59,6 +65,9 @@ public:
 
         //dont really check fifo for first round of MM2S
         if (_dir == NRF_DMA_DIR_MM2S) _ignoreCount = numFrames;
+
+        //clear irq
+        *_clrIrq = (1 << _irqBit);
     }
 
     //! wait on the head frame, return true for ready, false for timeout
@@ -66,14 +75,15 @@ public:
     {
         if (_ignoreCount != 0) return true;
 
-        //TODO need irq here .. cant sleep and check
-        auto exitTime = std::chrono::system_clock::now() + std::chrono::microseconds(timeoutUs);
-        while (((*_statReg) >> 15) == 0)
-        {
-            if (std::chrono::system_clock::now() > exitTime) return false;
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        }
-        return true;
+        //quick check without sleeping
+        if (((*_statReg) >> 15) != 0) return true;
+
+        //enable the irq and wait on it
+        *_setIrq = (1 << _irqBit);
+        gpio_poll_irq(_irqFd, timeoutUs/1000);
+        *_clrIrq = (1 << _irqBit);
+
+        return (((*_statReg) >> 15) != 0);
     }
 
     //! acquire head frame, return index or -1 for fail
@@ -151,6 +161,10 @@ public:
 
 private:
     const NovenaDmaDir _dir;
+    int _irqFd;
+    int _irqBit;
+    volatile uint16_t *_setIrq;
+    volatile uint16_t *_clrIrq;
     volatile uint16_t *_statReg;
     volatile uint16_t *_ctrlReg;
     void *_mem;

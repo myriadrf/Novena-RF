@@ -22,6 +22,9 @@
 
 #define LMS_CLOCK_RATE 30.72e6
 
+//GPIO4_IO28 - DISP0_DAT7 - ECSPI3_MISO
+#define FPGA_IRQ_GPIO 124
+
 /***********************************************************************
  * FPGA register #defines -- from the VHDL
  **********************************************************************/
@@ -52,17 +55,21 @@
 //--read-only register to query the FIFO readiness
 #define REG_DMA_FIFO_RDY_CTRL_ADDR 48
 
+//--write-only registers to configure irq from stat valids
+#define REG_DMA_SET_IRQ_MASK_ADDR 50
+#define REG_DMA_CLR_IRQ_MASK_ADDR 52
+
 //filter bypasses for configurable sample rate
 #define REG_DECIM_FILTER_BYPASS 54
 #define REG_INTERP_FILTER_BYPASS 56
 #define REG_LMS_TRX_LOOPBACK 58
 
-#define NUM_FILTERS 4
+#define NUM_FILTERS 5
 #define TEST0_BRAM_NUM_ENTRIES 16
-#define FRAMER0_FIFO_NUM_ENTRIES 1024
+#define FRAMER0_FIFO_NUM_ENTRIES 1024*16
 #define FRAMER0_S2MM_NUM_ENTRIES 4096
 #define FRAMER0_MM2S_NUM_ENTRIES 64
-#define DEFRAMER0_FIFO_NUM_ENTRIES 1024
+#define DEFRAMER0_FIFO_NUM_ENTRIES 1024*16
 #define DEFRAMER0_S2MM_NUM_ENTRIES 64
 #define DEFRAMER0_MM2S_NUM_ENTRIES 4096
 

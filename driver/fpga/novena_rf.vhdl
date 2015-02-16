@@ -41,6 +41,7 @@ entity novena_rf is
         FPGA_LED2 : out std_logic;
         APOPTOSIS : out std_logic;
         RESETBMCU : in std_logic;
+        DMA_IRQ : out std_logic;
 
         --lms control signals
         lms_rxen : out std_logic;
@@ -101,12 +102,16 @@ architecture rtl of novena_rf is
     --read-only register to query the FIFO readiness
     constant REG_DMA_FIFO_RDY_CTRL_ADDR : natural := 48;
 
+    --write-only registers to configure irq from stat valids
+    constant REG_DMA_SET_IRQ_MASK_ADDR : natural := 50;
+    constant REG_DMA_CLR_IRQ_MASK_ADDR : natural := 52;
+
     --filter bypasses for configurable sample rate
     constant REG_DECIM_FILTER_BYPASS : natural := 54;
     constant REG_INTERP_FILTER_BYPASS : natural := 56;
     constant REG_LMS_TRX_LOOPBACK : natural := 58;
 
-    constant NUM_FILTERS : positive := 4;
+    constant NUM_FILTERS : positive := 5;
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
     constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024*16;
     constant FRAMER0_S2MM_NUM_ENTRIES : positive := 4096;
@@ -185,6 +190,7 @@ architecture rtl of novena_rf is
     signal deframer0_stat_ready : std_logic;
 
     --dma control and status signals
+    signal dma_stat_irq_mask : std_logic_vector(15 downto 0);
     signal dma_ctrl_data : std_logic_vector(15 downto 0); --setting for all DMAs
     signal s2mm_framer0_ctrl_valid : std_logic;
     signal s2mm_framer0_ctrl_ready : std_logic;
@@ -294,6 +300,10 @@ begin
                 elsif (addr_num = REG_TIME_CTRL_ADDR) then
                     if_time_reg_out <= reg_data_wr(0) = '1';
                     if_time_reg_in <= reg_data_wr(1) = '1';
+                elsif (addr_num = REG_DMA_SET_IRQ_MASK_ADDR) then
+                    dma_stat_irq_mask <= dma_stat_irq_mask or reg_data_wr;
+                elsif (addr_num = REG_DMA_CLR_IRQ_MASK_ADDR) then
+                    dma_stat_irq_mask <= dma_stat_irq_mask and (not reg_data_wr);
                 elsif (addr_num = REG_DECIM_FILTER_BYPASS) then
                     decim_chain_bypass <= reg_data_wr(NUM_FILTERS-1 downto 0);
                 elsif (addr_num = REG_INTERP_FILTER_BYPASS) then
@@ -394,6 +404,21 @@ begin
                     if_time <= unsigned(if_time_wr);
                 end if;
             end if;
+        end if;
+    end process;
+
+    --------------------------------------------------------------------
+    -- IRQ mask and enable logic
+    --------------------------------------------------------------------
+    process (bus_clk) begin
+        if (bus_rst = '1') then
+            DMA_IRQ <= '0';
+        elsif (rising_edge(bus_clk)) then
+            DMA_IRQ <= (
+                (s2mm_framer0_stat_valid and dma_stat_irq_mask(0)) or
+                (mm2s_framer0_stat_valid and dma_stat_irq_mask(1)) or
+                (s2mm_deframer0_stat_valid and dma_stat_irq_mask(2)) or
+                (mm2s_deframer0_stat_valid and dma_stat_irq_mask(3)));
         end if;
     end process;
 

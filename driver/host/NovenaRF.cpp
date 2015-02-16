@@ -8,6 +8,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include "NovenaRF.hpp"
+#include "xilinx_user_gpio.h"
 #include "novena_rf.h" //shared kernel module header
 #include <SoapySDR/Registry.hpp>
 
@@ -23,6 +24,7 @@
  **********************************************************************/
 NovenaRF::NovenaRF(const std::string &fpgaImage):
     _novena_fd(-1),
+    _irq_fd(-1),
     _regs(nullptr),
     _framer0_mem(nullptr),
     _deframer0_mem(nullptr),
@@ -36,6 +38,15 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
     {
         throw std::runtime_error("Failed to open " NOVENA_RF_DEVFS ": " + std::string(strerror(errno)));
     }
+
+    //open the sysfs gpio used for IRQ
+    gpio_export(FPGA_IRQ_GPIO);
+    _irq_fd = gpio_fd_open(FPGA_IRQ_GPIO);
+    if (_irq_fd <= 0)
+    {
+        throw std::runtime_error("Failed to open FPGA_IRQ_GPIO: " + std::string(strerror(errno)));
+    }
+    gpio_set_edge(FPGA_IRQ_GPIO, "rising");
 
     //initialize the EIM configuration
     int ret = ioctl(_novena_fd, NOVENA_RF_EIM_INIT);
@@ -87,6 +98,7 @@ NovenaRF::~NovenaRF(void)
     munmap(_framer0_mem, NOVENA_RF_FRAMER0_PAGE_SIZE);
     munmap(_deframer0_mem, NOVENA_RF_DEFRAMER0_PAGE_SIZE);
     close(_novena_fd);
+    gpio_fd_close(_irq_fd);
 }
 
 /*******************************************************************

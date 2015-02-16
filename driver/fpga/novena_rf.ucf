@@ -41,8 +41,12 @@ INST "eim_bus/oddr2_eimD" IOB =FORCE;
 INST "eim_bus/oddr2_eimE" IOB =FORCE;
 INST "eim_bus/oddr2_eimF" IOB =FORCE;
 
-
-
+#################################
+# IRQ from FPGA to host
+# taken from ECSPI3_RDY
+#################################
+NET "DMA_IRQ" LOC = A5;
+NET "DMA_IRQ" IOSTANDARD = LVCMOS33;
 
 #Created by Constraints Editor (xc6slx45-csg324-3) - 2014/07/09
 #################################

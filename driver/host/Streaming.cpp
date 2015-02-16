@@ -9,6 +9,7 @@
 
 #include "NovenaRF.hpp"
 #include "twbw_helper.h"
+#include "xilinx_user_gpio.h"
 #include <arm_neon.h>
 
 /*******************************************************************
@@ -17,16 +18,16 @@
 void NovenaRF::initDMAChannels(void)
 {
     _framer0_rxd_chan.reset(new NovenaDmaChannel(
-        NRF_DMA_DIR_S2MM, _regs, REG_S2MM_FRAMER0_STAT_ADDR, REG_S2MM_FRAMER0_CTRL_ADDR,
+        NRF_DMA_DIR_S2MM, _irq_fd, 0, _regs, REG_S2MM_FRAMER0_STAT_ADDR, REG_S2MM_FRAMER0_CTRL_ADDR,
         _framer0_mem, FRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
     _framer0_ctrl_chan.reset(new NovenaDmaChannel(
-        NRF_DMA_DIR_MM2S, _regs, REG_MM2S_FRAMER0_STAT_ADDR, REG_MM2S_FRAMER0_CTRL_ADDR,
+        NRF_DMA_DIR_MM2S, _irq_fd, 1, _regs, REG_MM2S_FRAMER0_STAT_ADDR, REG_MM2S_FRAMER0_CTRL_ADDR,
         _framer0_mem, FRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_FRAMER0_NUM_FRAMES));
     _deframer0_stat_chan.reset(new NovenaDmaChannel(
-        NRF_DMA_DIR_S2MM, _regs, REG_S2MM_DEFRAMER0_STAT_ADDR, REG_S2MM_DEFRAMER0_CTRL_ADDR,
+        NRF_DMA_DIR_S2MM, _irq_fd, 2, _regs, REG_S2MM_DEFRAMER0_STAT_ADDR, REG_S2MM_DEFRAMER0_CTRL_ADDR,
         _deframer0_mem, DEFRAMER0_S2MM_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
     _deframer0_txd_chan.reset(new NovenaDmaChannel(
-        NRF_DMA_DIR_MM2S, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
+        NRF_DMA_DIR_MM2S, _irq_fd, 3, _regs, REG_MM2S_DEFRAMER0_STAT_ADDR, REG_MM2S_DEFRAMER0_CTRL_ADDR,
         _deframer0_mem, DEFRAMER0_MM2S_NUM_ENTRIES*sizeof(uint32_t), NOVENA_RF_DEFRAMER0_NUM_FRAMES));
 
     //init remainder state for rx
@@ -275,7 +276,7 @@ int NovenaRF::readStream(
     timeNs = this->ticksToTimeNs(timeTicks);
 
     //error indicators
-    if (overflow) ret = SOAPY_SDR_OVERFLOW;
+    if (overflow) flags |= SOAPY_SDR_END_ABRUPT;
     if (hasTime) flags |= SOAPY_SDR_HAS_TIME;
     if (burstEnd) flags |= SOAPY_SDR_END_BURST;
 

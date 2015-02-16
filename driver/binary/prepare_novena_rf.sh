@@ -30,6 +30,13 @@ then
     echo 135 > /sys/class/gpio/unexport
 fi
 echo 135 > /sys/class/gpio/export
+
+if [ -e "/sys/class/gpio/gpio124" ]
+then
+    echo 124 > /sys/class/gpio/unexport
+fi
+echo 124 > /sys/class/gpio/export
+
 if [ -e "/sys/class/gpio/gpio122" ]
 then
     echo 122 > /sys/class/gpio/unexport
@@ -39,6 +46,11 @@ echo 122 > /sys/class/gpio/export
 #set permissions on these GPIOs
 chmod a+rw /sys/class/gpio/gpio135/direction
 chmod a+rw /sys/class/gpio/gpio135/value
+
+chmod a+rw /sys/class/gpio/gpio124/direction
+chmod a+rw /sys/class/gpio/gpio124/value
+chmod a+rw /sys/class/gpio/gpio124/edge
+
 chmod a+rw /sys/class/gpio/gpio122/direction
 chmod a+rw /sys/class/gpio/gpio122/value
 

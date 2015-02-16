@@ -250,6 +250,7 @@ public:
 
 private:
     int _novena_fd; //novena_rf kernel module
+    int _irq_fd; //sysfs gpio for DMA IRQs
     void *_regs; //mapped register space
     void *_framer0_mem; //mapped RX DMA and RX control
     void *_deframer0_mem; //mapped TX DMA and TX status
