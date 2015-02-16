@@ -9,7 +9,37 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 * host/ - host wrapper through a SoapySDR support module
 * binary/ - pre-built FPGA image and kernel module
 
-## Prebuilt
+## Installing drivers
+
+The following instructions allow one to build the driver for NovenaRF.
+The instructions are intended for building locally on the device (for now).
+
+### Dependencies
+
+```
+sudo apt-get install cmake g++ libusb-1.0-0-dev git
+```
+
+### Build the host driver
+
+SoapySDR is a modular library and API for SDR devices.
+First install the SoapySDR library:
+https://github.com/pothosware/SoapySDR/wiki/BuildGuide
+
+Then build and install the Novena RF support module:
+
+```
+git clone https://github.com/myriadrf/Novena-RF.git
+cd Novena-RF/driver/host
+mkdir build
+cd build
+cmake ../
+make
+sudo make install
+sudo ldconfig
+```
+
+### Setup permissions and resources
 
 There is a compiled FPGA image and kernel module in binary/
 To install the files and to set the system permissions:
@@ -18,28 +48,16 @@ To install the files and to set the system permissions:
 sudo binary/prepare_novena_rf.sh
 ```
 
-## Build the SoapySDR module
+Note: this script should be run after each reboot to set permissions and to load the module.
 
-First install the SoapySDR library:
-https://github.com/pothosware/SoapySDR/wiki/BuildGuide
+## Advanced
 
-Build and install the Novena RF support module:
-
-```
-cd host
-mkdir build
-cd build
-cmake ../
-make
-sudo make install
-```
-
-## Build the FPGA image
+### Build the FPGA image
 
 Build the FPGA image with Xilinx ISE 14.*.
 The project is fpga/novena_rf/novena_rf.xise
 
-## Build the kernel module
+### Build the kernel module
 
 This is an out of tree kernel module, it requires a cross arm toolchain
 and a build of the linux kernel.
