@@ -59,6 +59,26 @@ Check that the installation detects NovenaRF support:
 SoapySDRUtil --make="driver=novena"
 ```
 
+## Platforms
+
+### GNU Radio
+
+Use the NovenaRF in GNU Radio through the gr-osmosdr API.
+The user will have to install GNU Radio and SoapySDR first,
+then install gr-osmosdr through the following github branch:
+https://github.com/pothosware/gr-osmosdr
+
+## Pothos
+
+Use the NovenaRF through Pothos SDR source and sink blocks
+which support advanced timed streaming and burst controls.
+Install SoapySDR first before following the build guide:
+https://github.com/pothosware/pothos/wiki/BuildGuide
+
+## OpenBTS
+
+Coming soon!
+
 ## Advanced
 
 ### Build the FPGA image
