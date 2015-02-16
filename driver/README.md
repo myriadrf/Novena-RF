@@ -22,11 +22,15 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 * "HB" - High band output (1500 - 3800 MHz)
 * "BB" - Broadband output
 
+The names for these switches can be used in the setAntenna() API call.
+
 ### Selectable RX antenna switches
 
 * "LB" - Low band input (300 - 2200 MHz)
 * "HB" - High band input (1500 - 3800MHz)
 * "BB" - Broadband input
+
+The names for these switches can be used in the setAntenna() API call.
 
 ### TX and RX Baseband filters
 
@@ -36,13 +40,17 @@ This directory contains the complete SDR driver for the Myriad-RF Module.
 
 * Overall: 0.0 to 56.0  dB
 * "VGA1": -35.0 to -4.0 dB
-* "VGA2": 0.0 to -25.0 dB
+* "VGA2": 0.0 to 25.0 dB
+
+The names for these gain elements can be used in the setGain() API call.
 
 ### Adjustable receive gain
 
 * Overall: 0.0  to 36.0  dB
 * "VGA2": 0.0  to 30.0  dB
 * "LNA": 0.0  to 6.0  dB
+
+The names for these gain elements can be used in the setGain() API call.
 
 ## Installing drivers
 
