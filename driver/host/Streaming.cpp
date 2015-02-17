@@ -354,14 +354,16 @@ int NovenaRF::writeStream(
 
     //pack the header
     void *payload;
-    size_t numSamples = std::min<size_t>(_deframer0_txd_chan->frameSize()/sizeof(uint32_t)-6, numElems);
+    const size_t maxElems = _deframer0_txd_chan->frameSize()/sizeof(uint32_t)-6;
+    size_t numSamples = std::min<size_t>(maxElems, numElems);
+    const bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
+    const long long timeTicks(this->timeNsToTicks(timeNs));
+    //only end burst if the last sample can be released
+    const bool burstEnd(((flags & SOAPY_SDR_END_BURST) != 0) and (numElems <= maxElems));
+
     twbw_deframer_data_packer(
         _deframer0_txd_chan->buffer(handle), len, sizeof(uint32_t),
-        payload, numSamples, id++,
-        (flags & SOAPY_SDR_HAS_TIME) != 0,
-        this->timeNsToTicks(timeNs),
-        (flags & SOAPY_SDR_END_BURST) != 0
-    );
+        payload, numSamples, id++, hasTime, timeTicks, burstEnd);
 
     //convert the samples
     switch (_txFormat)
