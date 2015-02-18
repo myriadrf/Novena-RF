@@ -78,8 +78,8 @@ void NovenaRF::initRFIC(void)
     this->setBandwidth(SOAPY_SDR_RX, 0, 30.0e6);
 
     //initialize to minimal gain settings
-    this->setGain(SOAPY_SDR_TX, 0, 0.0);
-    this->setGain(SOAPY_SDR_RX, 0, 0.0);
+    SoapySDR::Device::setGain(SOAPY_SDR_TX, 0, 0.0);
+    SoapySDR::Device::setGain(SOAPY_SDR_RX, 0, 0.0);
 
     //initialize antenna to broadband
     this->setAntenna(SOAPY_SDR_TX, 0, "BB");
@@ -117,52 +117,22 @@ std::vector<std::string> NovenaRF::listGains(const int direction, const size_t c
     std::vector<std::string> gains;
     if (direction == SOAPY_SDR_TX)
     {
-        gains.push_back("VGA1");
+        //ordering RF to BB
         gains.push_back("VGA2");
+        gains.push_back("VGA1");
     }
     if (direction == SOAPY_SDR_RX)
     {
-        gains.push_back("VGA2");
+        //ordering RF to BB
         gains.push_back("LNA");
+        gains.push_back("VGA1");
+        gains.push_back("VGA2");
     }
     return gains;
 }
 
 #define MinMaxClip(minimum, maximum, value) \
     std::max(minimum, std::min(maximum, value))
-
-void NovenaRF::setGain(const int direction, const size_t channel, const double value)
-{
-    //distribute gain automatically
-    //for tx distribute to VGA1 first
-    if (direction == SOAPY_SDR_TX)
-    {
-        if (value > 31.0)
-        {
-            this->setGain(direction, channel, "VGA1", -4.0);
-            this->setGain(direction, channel, "VGA2", value-31.0);
-        }
-        else
-        {
-            this->setGain(direction, channel, "VGA1", value-35.0);
-            this->setGain(direction, channel, "VGA2", 0.0);
-        }
-    }
-    //for rx distribute to LNA first
-    if (direction == SOAPY_SDR_RX)
-    {
-        if (value > 6.0)
-        {
-            this->setGain(direction, channel, "LNA", 6.0);
-            this->setGain(direction, channel, "VGA2", value-6.0);
-        }
-        else
-        {
-            this->setGain(direction, channel, "LNA", 0.0);
-            this->setGain(direction, channel, "VGA2", value);
-        }
-    }
-}
 
 void NovenaRF::setGain(const int direction, const size_t channel, const std::string &name, const double value)
 {
@@ -180,6 +150,11 @@ void NovenaRF::setGain(const int direction, const size_t channel, const std::str
     {
         const double regVal(MinMaxClip(0.0, 30.0, value));
         _lms6ctrl->SetParam(lms6::VGA2GAIN_RXVGA2, lrint(regVal/3.0));
+    }
+    if (direction == SOAPY_SDR_RX and name == "VGA1")
+    {
+        const double regVal(MinMaxClip(0.0, 30.0, value));
+        _lms6ctrl->SetParam(lms6::RFB_TIA_RXFE, regVal*4);
     }
     if (direction == SOAPY_SDR_RX and name == "LNA")
     {
@@ -202,6 +177,10 @@ double NovenaRF::getGain(const int direction, const size_t channel, const std::s
     {
         return _lms6ctrl->GetParam(lms6::VGA2GAIN_RXVGA2)*3.0;
     }
+    if (direction == SOAPY_SDR_RX and name == "VGA1")
+    {
+        return _lms6ctrl->GetParam(lms6::RFB_TIA_RXFE)/4.0;
+    }
     if (direction == SOAPY_SDR_RX and name == "LNA")
     {
         return (_lms6ctrl->GetParam(lms6::G_LNA_RXFE) & 0x1)*6.0;
@@ -209,26 +188,12 @@ double NovenaRF::getGain(const int direction, const size_t channel, const std::s
     return SoapySDR::Device::getGain(direction, channel, name);
 }
 
-double NovenaRF::getGain(const int direction, const size_t channel) const
-{
-    if (direction == SOAPY_SDR_TX) return this->getGain(direction, channel, "VGA1") + 35 + this->getGain(direction, channel, "VGA2");
-    if (direction == SOAPY_SDR_RX) return this->getGain(direction, channel, "VGA2") + this->getGain(direction, channel, "LNA");
-    return SoapySDR::Device::getGain(direction, channel);
-}
-
-SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel) const
-{
-    //overall range presented to the user
-    if (direction == SOAPY_SDR_TX) return SoapySDR::Range(0.0, 56.0);
-    if (direction == SOAPY_SDR_RX) return SoapySDR::Range(0.0, 36.0);
-    return SoapySDR::Device::getGainRange(direction, channel);
-}
-
 SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel, const std::string &name) const
 {
     if (direction == SOAPY_SDR_TX and name == "VGA1") return SoapySDR::Range(-35.0, -4.0);
     if (direction == SOAPY_SDR_TX and name == "VGA2") return SoapySDR::Range(0.0, 25.0);
     if (direction == SOAPY_SDR_RX and name == "VGA2") return SoapySDR::Range(0.0, 30.0);
+    if (direction == SOAPY_SDR_RX and name == "VGA1") return SoapySDR::Range(0.0, 30.0);
     if (direction == SOAPY_SDR_RX and name == "LNA") return SoapySDR::Range(0.0, 6.0);
     return SoapySDR::Device::getGainRange(direction, channel, name);
 }
