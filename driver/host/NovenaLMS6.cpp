@@ -11,6 +11,7 @@
 #include "LMS6002_MainControl.h"
 #include "lms6/CompoundOperations.h"
 #include "lms6/Algorithms.h"
+#include "MessageLog.h"
 
 /***********************************************************************
  * Log handler from the lms suite
@@ -41,9 +42,14 @@ static SignalHandlerLogger myLogger;
  **********************************************************************/
 void NovenaRF::initRFIC(void)
 {
+    _calLPFCoreOnce = 0;
+
     auto ser = new ConnectionManager();
     ser->RegisterForNotifications(&myLogger);
     ser->Open();
+
+    //separate logger - enable to console
+    //MessageLog::getInstance()->SetConsoleFilter(LOG_ALL, true);
 
     //main control owns the connection manager
     _lms6ctrl = new lms6::LMS6002_MainControl(ser);
@@ -84,9 +90,6 @@ void NovenaRF::initRFIC(void)
     //initialize antenna to broadband
     this->setAntenna(SOAPY_SDR_TX, 0, "BB");
     this->setAntenna(SOAPY_SDR_RX, 0, "BB");
-
-    //calibration
-    lms6::Algorithms(_lms6ctrl).CalibrateLPFCore();
 
     //set expected interface mod
     _lms6ctrl->SetParam(lms6::MISC_CTRL_9, 0); //rx fsync polarity
@@ -212,8 +215,37 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: %sTune(%f MHz), actual = %f MHz", (direction==SOAPY_SDR_TX)?"TX":"RX", frequency/1e6, realFreq);
     //SoapySDR::logf(SOAPY_SDR_TRACE, "fVco=%f, Nint=%d, Nfrac=%d, iVco=%d, divider=%d", fVco, Nint, Nfrac, iVco, divider);
 
+    //save gain values
+    std::map<std::string, double> save;
+    for (const auto &name : this->listGains(direction, channel))
+    {
+        save[name] = this->getGain(direction, channel, name);
+    }
+
+    //apply gain
+    if (direction == SOAPY_SDR_RX)
+    {
+        auto r = SoapySDR::Device::getGainRange(direction, channel);
+        SoapySDR::Device::setGain(direction, channel, r.maximum());
+    }
+    if (direction == SOAPY_SDR_TX)
+    {
+        this->setGain(direction, channel, "VGA1", -10);
+        this->setGain(direction, channel, "VGA2", 25);
+    }
+
+    //perform cal with adc off
+    _lms6ctrl->SetParam(lms6::EN_ADC_DAC, 0);
+    if (_calLPFCoreOnce++ == 0) lms6::Algorithms(_lms6ctrl).CalibrateLPFCore();
     if (direction == SOAPY_SDR_TX) lms6::Algorithms(_lms6ctrl).CalibrateTx();
     if (direction == SOAPY_SDR_RX) lms6::Algorithms(_lms6ctrl).CalibrateRx();
+    _lms6ctrl->SetParam(lms6::EN_ADC_DAC, 1);
+
+    //restore gain values
+    for (const auto &pair : save)
+    {
+        this->setGain(direction, channel, pair.first, pair.second);
+    }
 }
 
 double NovenaRF::getFrequency(const int direction, const size_t) const

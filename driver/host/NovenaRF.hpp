@@ -258,6 +258,7 @@ private:
 
     //lms suite instantiation
     lms6::LMS6002_MainControl *_lms6ctrl;
+    size_t _calLPFCoreOnce;
 
     //dma channel management
     std::unique_ptr<NovenaDmaChannel> _framer0_ctrl_chan;
