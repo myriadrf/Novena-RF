@@ -48,6 +48,7 @@ The names for these gain elements can be used in the setGain() API call.
 
 * Overall: 0.0  to 36.0  dB
 * "VGA2": 0.0  to 30.0  dB
+* "VGA1": 0.0  to 30.0  dB
 * "LNA": 0.0  to 6.0  dB
 
 The names for these gain elements can be used in the setGain() API call.
