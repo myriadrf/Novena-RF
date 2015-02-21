@@ -124,6 +124,19 @@ void NovenaRF::closeStream(SoapySDR::Stream *)
     return;
 }
 
+size_t NovenaRF::getStreamMTU(SoapySDR::Stream *stream) const
+{
+    if (int(stream) == SOAPY_SDR_RX)
+    {
+        return _framer0_rxd_chan->frameSize()/sizeof(uint32_t) - 4;
+    }
+    if (int(stream) == SOAPY_SDR_TX)
+    {
+        return _deframer0_txd_chan->frameSize()/sizeof(uint32_t) - 4;
+    }
+    return SoapySDR::Device::getStreamMTU(stream);
+}
+
 int NovenaRF::sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time)
 {
     size_t len = 0;
@@ -131,7 +144,7 @@ int NovenaRF::sendControlMessage(const int tag, const bool timeFlag, const bool 
     if (handle < 0) return SOAPY_SDR_STREAM_ERROR;
 
     //frame size without header and some padding
-    const int frameSize = _framer0_rxd_chan->frameSize()/sizeof(uint32_t) - 6;
+    const int frameSize = this->getStreamMTU((SoapySDR::Stream *)SOAPY_SDR_RX);
 
     twbw_framer_ctrl_packer(
         _framer0_ctrl_chan->buffer(handle), len,
@@ -354,7 +367,7 @@ int NovenaRF::writeStream(
 
     //pack the header
     void *payload;
-    const size_t maxElems = _deframer0_txd_chan->frameSize()/sizeof(uint32_t)-6;
+    const size_t maxElems = this->getStreamMTU(stream);
     size_t numSamples = std::min<size_t>(maxElems, numElems);
     const bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
     const long long timeTicks(this->timeNsToTicks(timeNs));

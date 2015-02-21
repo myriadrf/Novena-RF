@@ -91,6 +91,8 @@ public:
 
     void closeStream(SoapySDR::Stream *);
 
+    size_t getStreamMTU(SoapySDR::Stream *) const;
+
     //! used by RX to simplify sending a control message (used by various functions)
     int sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time);
 
