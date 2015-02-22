@@ -137,6 +137,14 @@ size_t NovenaRF::getStreamMTU(SoapySDR::Stream *stream) const
     return SoapySDR::Device::getStreamMTU(stream);
 }
 
+
+size_t NovenaRF::getNumDirectAccessBuffers(SoapySDR::Stream *stream)
+{
+    if (int(stream) == SOAPY_SDR_RX) return NOVENA_RF_FRAMER0_NUM_FRAMES;
+    if (int(stream) == SOAPY_SDR_TX) return NOVENA_RF_DEFRAMER0_NUM_FRAMES;
+    return SoapySDR::Device::getNumDirectAccessBuffers(stream);
+}
+
 int NovenaRF::sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time)
 {
     size_t len = 0;
@@ -215,6 +223,9 @@ int NovenaRF::deactivateStream(
     return SOAPY_SDR_STREAM_ERROR;
 }
 
+/*******************************************************************
+ * read stream remainder helper
+ ******************************************************************/
 void NovenaRF::stashConversion(const int inHandle, const void *inp, const size_t numInSamps)
 {
     _remainderHandle = inHandle;
@@ -239,7 +250,7 @@ int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps)
     _remainderSamps -= n;
     if (_remainderSamps == 0)
     {
-        _framer0_rxd_chan->release(_remainderHandle, 0);
+        this->releaseReadBuffer((SoapySDR::Stream *)SOAPY_SDR_RX, _remainderHandle);
         _remainderHandle = -1;
     }
 
@@ -249,10 +260,10 @@ int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps)
 /*******************************************************************
  * read stream API
  ******************************************************************/
-int NovenaRF::readStream(
+int NovenaRF::acquireReadBuffer(
     SoapySDR::Stream *,
-    void * const *buffs,
-    const size_t numElems,
+    size_t &handleOut,
+    const void **buffs,
     int &flags,
     long long &timeNs,
     const long timeoutUs)
@@ -261,17 +272,13 @@ int NovenaRF::readStream(
     int ret = 0;
     flags = 0;
 
-    //check remainder
-    ret = this->convertRemainder(buffs[0], numElems);
-    if (ret != 0) return ret;
-
     //wait with timeout then acquire
     if (not _framer0_rxd_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
     int handle = _framer0_rxd_chan->acquire(len);
     if (handle == -2) throw std::runtime_error("NovenaRF::readStream() all claimed");
+    handleOut = handle;
 
     //unpack the header
-    const void *payload;
     size_t numSamples;
     bool overflow;
     int idTag;
@@ -282,7 +289,7 @@ int NovenaRF::readStream(
     bool burstEnd;
     twbw_framer_data_unpacker(
         _framer0_rxd_chan->buffer(handle), len, sizeof(uint32_t),
-        payload, numSamples, overflow, idTag,
+        buffs[0], numSamples, overflow, idTag,
         hasTime, timeTicks,
         timeError, isBurst, burstEnd);
 
@@ -327,28 +334,52 @@ int NovenaRF::readStream(
             0, 0);
     }
 
-    //no errors yet, copy buffer -- sorry for the copy, zero copy in the future...
-    stashConversion(handle, payload, numSamples);
-    if (ret == 0) ret = this->convertRemainder(buffs[0], numElems);
+    return (ret == 0)?numSamples:ret;
+}
 
-    //SoapySDR::logf(SOAPY_SDR_TRACE, "ret=%d", ret);
-    return ret;
+void NovenaRF::releaseReadBuffer(
+    SoapySDR::Stream *,
+    const size_t handle)
+{
+    _framer0_rxd_chan->release(handle, 0);
+}
+
+int NovenaRF::readStream(
+    SoapySDR::Stream *stream,
+    void * const *buffs,
+    const size_t numElems,
+    int &flags,
+    long long &timeNs,
+    const long timeoutUs)
+{
+    int ret = 0;
+
+    //check remainder
+    ret = this->convertRemainder(buffs[0], numElems);
+    if (ret != 0) return ret;
+
+    //call into direct buffer access
+    size_t handle;
+    const void *payload;
+    ret = this->acquireReadBuffer(stream, handle, &payload, flags, timeNs, timeoutUs);
+    if (ret < 0) return ret;
+
+    //no errors, convert good buffer
+    stashConversion(handle, payload, ret);
+    const size_t numConvert(std::min(numElems, size_t(ret)));
+    return this->convertRemainder(buffs[0], numConvert);
 }
 
 /*******************************************************************
  * write stream API
  ******************************************************************/
-int NovenaRF::writeStream(
+int NovenaRF::acquireWriteBuffer(
     SoapySDR::Stream *stream,
-    const void * const *buffs,
-    const size_t numElems,
-    int &flags,
-    const long long timeNs,
-    const long timeoutUs
-)
+    size_t &handleOut,
+    void **buffs,
+    const long timeoutUs)
 {
     size_t len = 0;
-    static int id = 0;
 
     //handle stat reporting when user isnt
     if (not _userHandlesTxStatus)
@@ -364,19 +395,55 @@ int NovenaRF::writeStream(
     if (not _deframer0_txd_chan->waitReady(timeoutUs)) return SOAPY_SDR_TIMEOUT;
     int handle = _deframer0_txd_chan->acquire(len);
     if (handle == -1) throw std::runtime_error("NovenaRF::writeStream() all claimed");
+    handleOut = handle;
+
+    //offset by header space
+    buffs[0] = ((uint32_t *)_deframer0_txd_chan->buffer(handle)) + 4;
+    return (len/sizeof(uint32_t)) - 4;
+}
+
+void NovenaRF::releaseWriteBuffer(
+    SoapySDR::Stream *,
+    const size_t handle,
+    const size_t numElems,
+    int &flags,
+    const long long timeNs)
+{
+    static int id = 0;
 
     //pack the header
     void *payload;
-    const size_t maxElems = this->getStreamMTU(stream);
-    size_t numSamples = std::min<size_t>(maxElems, numElems);
+    size_t len = 0;
     const bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
     const long long timeTicks(this->timeNsToTicks(timeNs));
-    //only end burst if the last sample can be released
-    const bool burstEnd(((flags & SOAPY_SDR_END_BURST) != 0) and (numElems <= maxElems));
+    const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
 
     twbw_deframer_data_packer(
         _deframer0_txd_chan->buffer(handle), len, sizeof(uint32_t),
-        payload, numSamples, id++, hasTime, timeTicks, burstEnd);
+        payload, numElems, id++, hasTime, timeTicks, burstEnd);
+
+    //release the buffer back the SG engine
+    _deframer0_txd_chan->release(handle, len);
+}
+
+int NovenaRF::writeStream(
+    SoapySDR::Stream *stream,
+    const void * const *buffs,
+    const size_t numElems,
+    int &flags,
+    const long long timeNs,
+    const long timeoutUs
+)
+{
+    //acquire from direct buffer access
+    size_t handle;
+    void *payload;
+    int ret = this->acquireWriteBuffer(stream, handle, &payload, timeoutUs);
+    if (ret < 0) return ret;
+
+    //only end burst if the last sample can be released
+    const size_t numSamples = std::min<size_t>(ret, numElems);
+    if (numSamples < numElems) flags &= ~(SOAPY_SDR_END_BURST);
 
     //convert the samples
     switch (_txFormat)
@@ -385,9 +452,8 @@ int NovenaRF::writeStream(
     case SF_CF32: convert_cf32_to_word32(buffs[0], payload, numSamples); break;
     }
 
-    //always release the buffer back the SG engine
-    _deframer0_txd_chan->release(handle, len);
-
+    //release to direct buffer access
+    this->releaseWriteBuffer(stream, handle, numSamples, flags, timeNs);
     return numSamples;
 }
 

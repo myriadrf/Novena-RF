@@ -135,6 +135,33 @@ public:
         long long &timeNs,
         const long timeoutUs);
 
+    size_t getNumDirectAccessBuffers(SoapySDR::Stream *stream);
+
+    int acquireReadBuffer(
+        SoapySDR::Stream *stream,
+        size_t &handle,
+        const void **buffs,
+        int &flags,
+        long long &timeNs,
+        const long timeoutUs);
+
+    void releaseReadBuffer(
+        SoapySDR::Stream *stream,
+        const size_t handle);
+
+    int acquireWriteBuffer(
+        SoapySDR::Stream *stream,
+        size_t &handle,
+        void **buffs,
+        const long timeoutUs);
+
+    void releaseWriteBuffer(
+        SoapySDR::Stream *stream,
+        const size_t handle,
+        const size_t numElems,
+        int &flags,
+        const long long timeNs);
+
     /*******************************************************************
      * Antenna API
      ******************************************************************/
