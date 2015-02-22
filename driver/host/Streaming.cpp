@@ -233,7 +233,7 @@ void NovenaRF::stashConversion(const int inHandle, const void *inp, const size_t
     _remainderSamps = numInSamps;
 }
 
-int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps)
+int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps, int &flags)
 {
     if (_remainderHandle == -1) return 0; //nothing
 
@@ -252,6 +252,10 @@ int NovenaRF::convertRemainder(void *outp, const size_t numOutSamps)
     {
         this->releaseReadBuffer((SoapySDR::Stream *)SOAPY_SDR_RX, _remainderHandle);
         _remainderHandle = -1;
+    }
+    else
+    {
+        flags |= SOAPY_SDR_MORE_FRAGMENTS;
     }
 
     return n;
@@ -355,7 +359,7 @@ int NovenaRF::readStream(
     int ret = 0;
 
     //check remainder
-    ret = this->convertRemainder(buffs[0], numElems);
+    ret = this->convertRemainder(buffs[0], numElems, flags);
     if (ret != 0) return ret;
 
     //call into direct buffer access
@@ -367,7 +371,7 @@ int NovenaRF::readStream(
     //no errors, convert good buffer
     stashConversion(handle, payload, ret);
     const size_t numConvert(std::min(numElems, size_t(ret)));
-    return this->convertRemainder(buffs[0], numConvert);
+    return this->convertRemainder(buffs[0], numConvert, flags);
 }
 
 /*******************************************************************

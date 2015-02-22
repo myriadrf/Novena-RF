@@ -98,7 +98,7 @@ public:
 
     //! used by RX readStream to deal with tiny input buffers from the user
     void stashConversion(const int inHandle, const void *inp, const size_t numInSamps);
-    int convertRemainder(void *outp, const size_t numOutSamps);
+    int convertRemainder(void *outp, const size_t numOutSamps, int &flags);
 
     int activateStream(
         SoapySDR::Stream *stream,
