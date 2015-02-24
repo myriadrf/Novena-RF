@@ -109,7 +109,11 @@ architecture rtl of novena_rf is
     --filter bypasses for configurable sample rate
     constant REG_DECIM_FILTER_BYPASS : natural := 54;
     constant REG_INTERP_FILTER_BYPASS : natural := 56;
-    constant REG_LMS_TRX_LOOPBACK : natural := 58;
+    constant REG_DECIM_CORDIC_PHASE_LO : natural := 58;
+    constant REG_DECIM_CORDIC_PHASE_HI : natural := 60;
+    constant REG_INTERP_CORDIC_PHASE_LO : natural := 62;
+    constant REG_INTERP_CORDIC_PHASE_HI : natural := 64;
+    constant REG_LMS_TRX_LOOPBACK : natural := 70;
 
     constant NUM_FILTERS : positive := 5;
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
@@ -229,6 +233,8 @@ architecture rtl of novena_rf is
     signal lms_trx_loopback : std_logic;
     signal decim_chain_bypass : std_logic_vector(NUM_FILTERS-1 downto 0);
     signal interp_chain_bypass : std_logic_vector(NUM_FILTERS-1 downto 0);
+    signal decim_cordic_phase : std_logic_vector(31 downto 0);
+    signal interp_cordic_phase : std_logic_vector(31 downto 0);
 
     signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
 
@@ -308,6 +314,14 @@ begin
                     decim_chain_bypass <= reg_data_wr(NUM_FILTERS-1 downto 0);
                 elsif (addr_num = REG_INTERP_FILTER_BYPASS) then
                     interp_chain_bypass <= reg_data_wr(NUM_FILTERS-1 downto 0);
+                elsif (addr_num = REG_DECIM_CORDIC_PHASE_LO) then
+                    decim_cordic_phase(15 downto 0) <= reg_data_wr;
+                elsif (addr_num = REG_DECIM_CORDIC_PHASE_HI) then
+                    decim_cordic_phase(31 downto 16) <= reg_data_wr;
+                elsif (addr_num = REG_INTERP_CORDIC_PHASE_LO) then
+                    interp_cordic_phase(15 downto 0) <= reg_data_wr;
+                elsif (addr_num = REG_INTERP_CORDIC_PHASE_HI) then
+                    interp_cordic_phase(31 downto 16) <= reg_data_wr;
                 elsif (addr_num = REG_LMS_TRX_LOOPBACK) then
                     lms_trx_loopback <= reg_data_wr(0);
                 end if;
@@ -557,6 +571,7 @@ begin
     port map (
         clk => lms_clk,
         rst => lms_rst,
+        phase_inc => decim_cordic_phase,
         bypass => decim_chain_bypass,
         in_tdata => adc_data,
         in_tvalid => adc_valid,
@@ -599,6 +614,7 @@ begin
     port map (
         clk => lms_clk,
         rst => lms_rst,
+        phase_inc => interp_cordic_phase,
         bypass => interp_chain_bypass,
         in_tdata => interp_data,
         in_tvalid => '1', --deframer always valid

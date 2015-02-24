@@ -1,0 +1,15 @@
+# Output products list for <cordic_v5_0>
+_xmsgs/pn_parser.xmsgs
+cordic_v5_0/doc/cordic_v5_0_readme.txt
+cordic_v5_0/doc/cordic_v5_0_vinfo.html
+cordic_v5_0/doc/ds858_cordic.pdf
+cordic_v5_0.asy
+cordic_v5_0.gise
+cordic_v5_0.ngc
+cordic_v5_0.vhd
+cordic_v5_0.vho
+cordic_v5_0.xco
+cordic_v5_0.xise
+cordic_v5_0_flist.txt
+cordic_v5_0_xmdf.tcl
+demo_tb/tb_cordic_v5_0.vhd

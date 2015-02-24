@@ -210,6 +210,18 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     unsigned Nint, Nfrac, iVco;
     int divider;
 
+    //extract special tuning kwargs (TODO)
+    /*
+    const bool useOffset = args.count("OFFSET") != 0;
+    const bool forceRfFreq = args.count("RF") != 0;
+    const bool forceBbFreq = args.count("BB") != 0;
+    const double offsetFreq = useOffset?std::stod(args.at("OFFSET")):0.0;
+    const double rfFreq = forceRfFreq?std::stod(args.at("RF")):0.0;
+    const double bbFreq = forceBbFreq?std::stod(args.at("BB")):0.0;
+    //const bool tuneRf = not forceRfFreq or 
+    const double targetLoFreq = frequency;//forceRfFreq? rfFreq : (frequency + offsetFreq);
+    */
+
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
     SoapySDR::logf(SOAPY_SDR_TRACE, "NovenaRF: %sTune(%f MHz), actual = %f MHz", (direction==SOAPY_SDR_TX)?"TX":"RX", frequency/1e6, realFreq);
@@ -245,6 +257,20 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     for (const auto &pair : save)
     {
         this->setGain(direction, channel, pair.first, pair.second);
+    }
+
+    //set the cordic rate (TODO)
+    const double cordicFreq = 0.0;
+    uint32_t cordicWord = int32_t(cordicFreq*(1 << 31)/LMS_CLOCK_RATE);
+    if (direction == SOAPY_SDR_RX)
+    {
+        this->writeRegister(REG_DECIM_CORDIC_PHASE_LO, cordicWord & 0xffff);
+        this->writeRegister(REG_DECIM_CORDIC_PHASE_HI, cordicWord >> 16);
+    }
+    if (direction == SOAPY_SDR_TX)
+    {
+        this->writeRegister(REG_INTERP_CORDIC_PHASE_LO, cordicWord & 0xffff);
+        this->writeRegister(REG_INTERP_CORDIC_PHASE_HI, cordicWord >> 16);
     }
 }
 

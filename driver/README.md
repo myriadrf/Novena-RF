@@ -160,7 +160,7 @@ export PATH=/opt/toolchains/gcc-linaro-arm-linux-gnueabi-2012.04-20120426_linux/
 export ARCH=arm
 export CROSS_COMPILE=arm-linux-gnueabi-
 make novena_defconfig
-make uImage modules
+make zImage modules
 ```
 
 Build the kernel module:
