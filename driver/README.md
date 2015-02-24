@@ -151,8 +151,17 @@ cd novena-linux
 git checkout v3.17-rc5-novena-vivante
 ```
 
-Instructions for building the kernel:
+Instructions for building the kernel borrowed from this site:
 http://boundarydevices.com/cross-compile-i-mx6-kernel-using-ltib-toolchain/
+
+
+```
+export PATH=/opt/toolchains/gcc-linaro-arm-linux-gnueabi-2012.04-20120426_linux/bin/:$PATH
+export ARCH=arm
+export CROSS_COMPILE=arm-linux-gnueabi-
+make novena_defconfig
+make uImage modules
+```
 
 Build the kernel module:
 
