@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <vector>
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include "NovenaRegs.hpp"
 #include "xilinx_user_gpio.h"
 
@@ -81,7 +83,13 @@ public:
 
         //enable the irq and wait on it
         *_setIrq = (1 << _irqBit);
-        gpio_poll_irq(_irqFd, timeoutUs/1000);
+        const auto exitTime(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(timeoutUs));
+        do
+        {
+            gpio_poll_irq(_irqFd, timeoutUs/1000);
+            if (((*_statReg) >> 15) != 0) return true;
+            std::this_thread::yield(); //shared irq for other caller
+        } while (std::chrono::high_resolution_clock::now() < exitTime);
         *_clrIrq = (1 << _irqBit);
 
         return (((*_statReg) >> 15) != 0);
