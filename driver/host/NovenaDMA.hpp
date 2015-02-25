@@ -87,7 +87,7 @@ public:
         do
         {
             gpio_poll_irq(_irqFd, timeoutUs/1000);
-            if (((*_statReg) >> 15) != 0) return true;
+            if (((*_statReg) >> 15) != 0) break;
             std::this_thread::yield(); //shared irq for other caller
         } while (std::chrono::high_resolution_clock::now() < exitTime);
         *_clrIrq = (1 << _irqBit);

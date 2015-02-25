@@ -221,7 +221,7 @@ void NovenaRF::setSampleRate(const int direction, const size_t, const double rat
     //write the bypass word
     if (direction == SOAPY_SDR_RX) this->writeRegister(REG_DECIM_FILTER_BYPASS, ~enabledFilters);
     if (direction == SOAPY_SDR_TX) this->writeRegister(REG_INTERP_FILTER_BYPASS, ~enabledFiltersR);
-    SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x\n", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
+    SoapySDR::logf(SOAPY_SDR_TRACE, "Actual sample rate %f MHz, enables=0x%x, 0x%x", _cachedSampleRates[direction]/1e6, enabledFilters, enabledFiltersR);
 }
 
 double NovenaRF::getSampleRate(const int direction, const size_t) const
