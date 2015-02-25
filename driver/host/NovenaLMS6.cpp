@@ -204,23 +204,11 @@ SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel
 /*******************************************************************
  * Frequency API
  ******************************************************************/
-void NovenaRF::setFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &args)
+void NovenaRF::setRfFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &)
 {
     double realFreq, fVco;
     unsigned Nint, Nfrac, iVco;
     int divider;
-
-    //extract special tuning kwargs (TODO)
-    /*
-    const bool useOffset = args.count("OFFSET") != 0;
-    const bool forceRfFreq = args.count("RF") != 0;
-    const bool forceBbFreq = args.count("BB") != 0;
-    const double offsetFreq = useOffset?std::stod(args.at("OFFSET")):0.0;
-    const double rfFreq = forceRfFreq?std::stod(args.at("RF")):0.0;
-    const double bbFreq = forceBbFreq?std::stod(args.at("BB")):0.0;
-    //const bool tuneRf = not forceRfFreq or 
-    const double targetLoFreq = frequency;//forceRfFreq? rfFreq : (frequency + offsetFreq);
-    */
 
     _lms6ctrl->SetFrequency(direction == SOAPY_SDR_RX, frequency/1e6, realFreq, Nint, Nfrac, iVco, fVco, divider);
     _lms6ctrl->Tune(direction == SOAPY_SDR_RX);
@@ -258,30 +246,69 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const dou
     {
         this->setGain(direction, channel, pair.first, pair.second);
     }
-
-    //set the cordic rate (TODO)
-    const double cordicFreq = 0.0;
-    uint32_t cordicWord = int32_t(cordicFreq*(1 << 31)/LMS_CLOCK_RATE);
-    if (direction == SOAPY_SDR_RX)
-    {
-        this->writeRegister(REG_DECIM_CORDIC_PHASE_LO, cordicWord & 0xffff);
-        this->writeRegister(REG_DECIM_CORDIC_PHASE_HI, cordicWord >> 16);
-    }
-    if (direction == SOAPY_SDR_TX)
-    {
-        this->writeRegister(REG_INTERP_CORDIC_PHASE_LO, cordicWord & 0xffff);
-        this->writeRegister(REG_INTERP_CORDIC_PHASE_HI, cordicWord >> 16);
-    }
 }
 
-double NovenaRF::getFrequency(const int direction, const size_t) const
+void NovenaRF::setFrequency(const int direction, const size_t channel, const std::string &name, const double frequency, const SoapySDR::Kwargs &args)
 {
-    return _lms6ctrl->GetFrequency(direction == SOAPY_SDR_RX)*1e6;
+    //printf("setFrequency %s %f MHz\n", name.c_str(), frequency/1e6);
+    if (name == "RF")
+    {
+        return this->setRfFrequency(direction, channel, frequency, args);
+    }
+    if (name == "BB")
+    {
+        //set the cordic rate (TODO fix phase in FPGA before using)
+        const double cordicFreq = 0.0;
+        const double dspRate = LMS_CLOCK_RATE/2;
+        uint32_t cordicWord = int32_t(cordicFreq*(1 << 31)/dspRate);
+        if (direction == SOAPY_SDR_RX)
+        {
+            this->writeRegister(REG_DECIM_CORDIC_PHASE_LO, cordicWord & 0xffff);
+            this->writeRegister(REG_DECIM_CORDIC_PHASE_HI, cordicWord >> 16);
+        }
+        if (direction == SOAPY_SDR_TX)
+        {
+            this->writeRegister(REG_INTERP_CORDIC_PHASE_LO, cordicWord & 0xffff);
+            this->writeRegister(REG_INTERP_CORDIC_PHASE_HI, cordicWord >> 16);
+        }
+        return;
+    }
+    return SoapySDR::Device::setFrequency(direction, channel, name, frequency);
 }
 
-SoapySDR::RangeList NovenaRF::getFrequencyRange(const int direction, const size_t channel) const
+double NovenaRF::getFrequency(const int direction, const size_t channel, const std::string &name) const
 {
-    return SoapySDR::RangeList(1, SoapySDR::Range(0.3e9, 3.8e9));
+    if (name == "RF")
+    {
+        return _lms6ctrl->GetFrequency(direction == SOAPY_SDR_RX)*1e6;
+    }
+    if (name == "BB")
+    {
+        //TODO once cordic works
+    }
+    return SoapySDR::Device::getFrequency(direction, channel, name);
+}
+
+SoapySDR::RangeList NovenaRF::getFrequencyRange(const int direction, const size_t channel, const std::string &name) const
+{
+    if (name == "RF")
+    {
+        return SoapySDR::RangeList(1, SoapySDR::Range(0.3e9, 3.8e9));
+    }
+    if (name == "BB")
+    {
+        const double dspRate = LMS_CLOCK_RATE/2;
+        return SoapySDR::RangeList(1, SoapySDR::Range(-dspRate/2, dspRate/2));
+    }
+    return SoapySDR::Device::getFrequencyRange(direction, channel, name);
+}
+
+std::vector<std::string> NovenaRF::listFrequencies(const int direction, const size_t channel) const
+{
+    std::vector<std::string> comps;
+    comps.push_back("RF");
+    comps.push_back("BB");
+    return comps;
 }
 
 /*******************************************************************

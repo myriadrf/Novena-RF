@@ -189,11 +189,15 @@ public:
     /*******************************************************************
      * Frequency API
      ******************************************************************/
-    void setFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &args);
+    void setFrequency(const int direction, const size_t channel, const std::string &name, const double frequency, const SoapySDR::Kwargs &args);
 
-    double getFrequency(const int direction, const size_t channel) const;
+    void setRfFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &args);
 
-    SoapySDR::RangeList getFrequencyRange(const int direction, const size_t channel) const;
+    double getFrequency(const int direction, const size_t channel, const std::string &name) const;
+
+    SoapySDR::RangeList getFrequencyRange(const int direction, const size_t channel, const std::string &name) const;
+
+    std::vector<std::string> listFrequencies(const int direction, const size_t channel) const;
 
     /*******************************************************************
      * Sample Rate API
