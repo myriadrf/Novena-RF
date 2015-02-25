@@ -198,7 +198,7 @@ void NovenaRF::setSampleRate(const int direction, const size_t, const double rat
     const double baseRate = this->getMasterClockRate()/2.0;
     const double factor = baseRate/rate;
     if (rate > baseRate) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too high");
-    int intFactor = int(factor + 0.5);
+    int intFactor = 1 << int((std::log(factor)/std::log(2.0)) + 0.5);
     if (intFactor > (1 << NUM_FILTERS)) throw std::runtime_error("NovenaRF::setSampleRate() -- rate too low");
     if (std::abs(factor-intFactor) > 0.01) SoapySDR::logf(SOAPY_SDR_WARNING,
         "NovenaRF::setSampleRate(): not a power of two factor: IF rate = %f MHZ, Requested rate = %f MHz", baseRate/1e6, rate/1e6);
