@@ -100,7 +100,7 @@ void convert_word32_to_cf32(const void *inp, void *outp, const size_t n)
 SoapySDR::Stream *NovenaRF::setupStream(
     const int direction,
     const std::string &format,
-    const std::vector<size_t> &channels,
+    const std::vector<size_t> &channels_,
     const SoapySDR::Kwargs &)
 {
     //check the format config
@@ -110,6 +110,7 @@ SoapySDR::Stream *NovenaRF::setupStream(
     else throw std::runtime_error("NovenaRF::setupStream: "+format);
 
     //check the channel config
+    std::vector<size_t> channels(channels_); if (channels.empty()) channels.push_back(0);
     if (channels.size() != 1 or channels[0] != 0) throw std::runtime_error("NovenaRF::setupStream: only one channel supported");
 
     //store the format
