@@ -302,6 +302,12 @@ int NovenaRF::acquireReadBuffer(
     //gather time even if its not valid
     timeNs = this->ticksToTimeNs(timeTicks);
 
+    //infer the time within a burst based on the rate so we always have a valid time
+    if (hasTime) _nextTime = timeNs;
+    timeNs = _nextTime;
+    hasTime = true;
+    _nextTime += long((1e9*numSamples)/getSampleRate(SOAPY_SDR_RX, 0));
+
     //error indicators
     if (overflow) flags |= SOAPY_SDR_END_ABRUPT;
     if (hasTime) flags |= SOAPY_SDR_HAS_TIME;

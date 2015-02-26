@@ -303,6 +303,7 @@ private:
     int _remainderHandle;
     size_t _remainderSamps;
     const uint32_t *_remainderBuff;
+    long long _nextTime;
 
     //tx streaming
     bool _userHandlesTxStatus;
