@@ -34,6 +34,9 @@ entity hb_filter_chain is
         -- synchronous reset
         rst : in std_logic;
 
+        -- enable dc removal
+        dc_removal : in std_logic := '0';
+
         -- CORDIC phase increment
         phase_inc : in std_logic_vector(31 downto 0);
 
@@ -129,10 +132,34 @@ begin
     --decim mode has cordic on the input
     decim_ios: if MODE = "decim" generate
 
-        --connect input to cordic
-        in_cordic_data <= in_tdata;
-        in_cordic_valid <= in_tvalid;
-        in_tready <= in_cordic_ready;
+        --connect input to cordic (through dc removal)
+        dc_removal_i : entity work.dc_removal
+        port map(
+            clk => clk,
+            rst => rst,
+            enable => dc_removal,
+            in_tdata => in_tdata(15 downto 0),
+            in_tvalid => in_tvalid,
+            in_tready => in_tready,
+            out_tdata => in_cordic_data(15 downto 0),
+            out_tvalid => in_cordic_valid,
+            out_tready => in_cordic_ready
+        );
+        dc_removal_q : entity work.dc_removal
+        port map(
+            clk => clk,
+            rst => rst,
+            enable => dc_removal,
+            in_tdata => in_tdata(31 downto 16),
+            in_tvalid => in_tvalid,
+            in_tready => open, --driven in dc_removal_i
+            out_tdata => in_cordic_data(31 downto 16),
+            out_tvalid => open, --driven in dc_removal_i
+            out_tready => in_cordic_ready
+        );
+        --in_cordic_data <= in_tdata;
+        --in_cordic_valid <= in_tvalid;
+        --in_tready <= in_cordic_ready;
 
         --connect cordic to chain start
         datas(31 downto 0) <= out_cordic_data;

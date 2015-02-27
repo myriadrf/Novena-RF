@@ -89,6 +89,9 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
     //initialize the DMA channels
     this->writeRegister(REG_LMS_TRX_LOOPBACK, 0); //disable loopback
     this->initDMAChannels();
+
+    //default to offset removal on
+    this->setDCOffsetMode(SOAPY_SDR_RX, 0, true);
 }
 
 NovenaRF::~NovenaRF(void)

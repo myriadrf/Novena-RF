@@ -174,6 +174,23 @@ public:
     /*******************************************************************
      * Frontend corrections API
      ******************************************************************/
+    void setDCOffsetMode(const int direction, const size_t channel, const bool automatic)
+    {
+        if (direction == SOAPY_SDR_RX)
+        {
+            _dcOffsetCache = automatic;
+            return this->writeRegister(REG_ENABLE_DC_REMOVAL, automatic?1:0);
+        }
+        return SoapySDR::Device::setDCOffsetMode(direction, channel, automatic);
+    }
+
+    bool getDCOffsetMode(const int direction, const size_t channel) const
+    {
+        if (direction == SOAPY_SDR_RX) return _dcOffsetCache;
+        return SoapySDR::Device::getDCOffsetMode(direction, channel);
+    }
+
+    bool _dcOffsetCache;
 
     /*******************************************************************
      * Gain API

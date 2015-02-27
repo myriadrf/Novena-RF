@@ -113,6 +113,7 @@ architecture rtl of novena_rf is
     constant REG_DECIM_CORDIC_PHASE_HI : natural := 60;
     constant REG_INTERP_CORDIC_PHASE_LO : natural := 62;
     constant REG_INTERP_CORDIC_PHASE_HI : natural := 64;
+    constant REG_ENABLE_DC_REMOVAL : natural := 66;
     constant REG_LMS_TRX_LOOPBACK : natural := 70;
 
     constant NUM_FILTERS : positive := 5;
@@ -235,6 +236,7 @@ architecture rtl of novena_rf is
     signal interp_chain_bypass : std_logic_vector(NUM_FILTERS-1 downto 0);
     signal decim_cordic_phase : std_logic_vector(31 downto 0);
     signal interp_cordic_phase : std_logic_vector(31 downto 0);
+    signal dc_removal : std_logic;
 
     signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
 
@@ -322,6 +324,8 @@ begin
                     interp_cordic_phase(15 downto 0) <= reg_data_wr;
                 elsif (addr_num = REG_INTERP_CORDIC_PHASE_HI) then
                     interp_cordic_phase(31 downto 16) <= reg_data_wr;
+                elsif (addr_num = REG_ENABLE_DC_REMOVAL) then
+                    dc_removal <= reg_data_wr(0);
                 elsif (addr_num = REG_LMS_TRX_LOOPBACK) then
                     lms_trx_loopback <= reg_data_wr(0);
                 end if;
@@ -571,6 +575,7 @@ begin
     port map (
         clk => lms_clk,
         rst => lms_rst,
+        dc_removal => dc_removal,
         phase_inc => decim_cordic_phase,
         bypass => decim_chain_bypass,
         in_tdata => adc_data,
