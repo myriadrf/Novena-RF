@@ -154,6 +154,7 @@ architecture rtl of twbw_framer is
     signal overflow : std_logic := '0';
     signal time_error : std_logic := '0';
     signal time_wait0 : boolean := false;
+    signal first_packet : std_logic := '0';
 
 begin
     assert (TIME_WIDTH <= 64) report "twbw_framer: time width too large" severity failure;
@@ -261,7 +262,7 @@ begin
 
     framed_fifo_in_hdr <= (others => '0');
     if (state = STATE_HDR0_OUT) then
-        framed_fifo_in_hdr(31) <= time_flag;
+        framed_fifo_in_hdr(31) <= first_packet; --time is always valid on first packet
         framed_fifo_in_hdr(30) <= time_error;
         framed_fifo_in_hdr(28) <= burst_flag;
         framed_fifo_in_hdr(27) <= continuous_flag;
@@ -290,6 +291,7 @@ begin
             overflow <= '0';
             time_error <= '0';
             time_wait0 <= false;
+            first_packet <= '0';
         else case state is
 
         when STATE_CTRL_IDLE =>
@@ -312,6 +314,7 @@ begin
                 stream_time <= unsigned(ctrl_fifo_out_data(TIME_WIDTH-1 downto 0));
                 state <= STATE_WAIT_TIME;
                 time_wait0 <= true;
+                first_packet <= '1';
             end if;
 
         when STATE_WAIT_TIME =>
@@ -372,6 +375,7 @@ begin
             --end this state under the various conditions below
             if (framed_fifo_in_valid = '1' and framed_fifo_in_ready = '1' and framed_fifo_in_last = '1') then
                 time_flag <= '0'; -- dont wait on time again
+                first_packet <= '0'; --header is out, clear
                 if (overflow = '1' or time_error = '1') then
                     state <= STATE_CTRL_IDLE;
                 elsif (burst_flag = '1' and burst_done) then
