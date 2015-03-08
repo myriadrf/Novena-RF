@@ -244,14 +244,23 @@ public:
     /*******************************************************************
      * Time API
      ******************************************************************/
-    long long ticksToTimeNs(const uint64_t ticks) const
+    template <typename T>
+    static T scaleDiv(const T in, const T scalar, const T divisor)
     {
-        return (long long)(ticks/(LMS_CLOCK_RATE/1e9));
+        const auto divRes = std::div(in, divisor);
+        const T outQuot = divRes.quot * scalar;
+        const T outRem = (divRes.rem * scalar) + (divisor/2);
+        return outQuot + (outRem/divisor);
     }
 
-    uint64_t timeNsToTicks(const long long timeNs) const
+    long long ticksToTimeNs(const long long ticks) const
     {
-        return uint64_t(timeNs*(LMS_CLOCK_RATE/1e9));
+        return scaleDiv<long long>(ticks, 1e9, LMS_CLOCK_RATE);
+    }
+
+    long long timeNsToTicks(const long long timeNs) const
+    {
+        return scaleDiv<long long>(timeNs, LMS_CLOCK_RATE, 1e9);
     }
 
     bool hasHardwareTime(const std::string &what) const;
