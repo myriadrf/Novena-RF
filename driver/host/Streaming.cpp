@@ -11,7 +11,6 @@
 #include "twbw_helper.h"
 #include "xilinx_user_gpio.h"
 #include <arm_neon.h>
-#include <iostream>
 
 /*******************************************************************
  * Initialize DMA channels
@@ -339,7 +338,7 @@ int NovenaRF::acquireReadBuffer(
     //restart streaming when overflow in continuous mode
     if (overflow and not isBurst)
     {
-        std::cerr << "0";
+        SoapySDR::log(SOAPY_SDR_SSI, "0");
         sendControlMessage(0xff, //restart streaming
             false, //timeFlag
             false, //burstFlag
@@ -509,8 +508,8 @@ int NovenaRF::readStreamStatus(
     if (burstEnd) flags |= SOAPY_SDR_END_BURST;
 
     //SoapySDR::logf(SOAPY_SDR_TRACE, "handle=%d, TxStat=%d", handle, idTag);
-    if (underflow) std::cerr << "U";
-    if (timeError) std::cerr << "T";
+    if (underflow) SoapySDR::log(SOAPY_SDR_SSI, "U");
+    if (timeError) SoapySDR::log(SOAPY_SDR_SSI, "T");
 
     _deframer0_stat_chan->release(handle, len);
 
