@@ -2,8 +2,6 @@
 
 This repository contains the design and manufacturing files for an RF module that adds 300MHz-3.8GHz broadband SDR transmit/receive capability to the [Novena Open Hardware Computing Platform](http://www.kosagi.com/w/index.php?title=Novena_Main_Page), along with RTL sources for interfacing implemented in the Novena FPGA.
 
-** NOTE: A driver is currently in development, but it is not ready for use. Please do not attempt to build this. This note will be removed as soon as it is functional — Andrew Back, 11th Feb 2015. ** 
-
 ## Contents
 
 The directory structure for the hardware designs is as follows:
