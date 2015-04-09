@@ -86,7 +86,12 @@ public:
         const auto exitTime(std::chrono::high_resolution_clock::now() + std::chrono::microseconds(timeoutUs));
         do
         {
+            //gpio poll is having wakeup issues, switching to usleep
+            #if 1
+            usleep(100);
+            #else
             gpio_poll_irq(_irqFd, timeoutUs/1000);
+            #endif
             if (((*_statReg) >> 15) != 0) break;
             std::this_thread::yield(); //shared irq for other caller
         } while (std::chrono::high_resolution_clock::now() < exitTime);
