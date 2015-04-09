@@ -329,10 +329,12 @@ private:
     int _remainderHandle;
     size_t _remainderSamps;
     const uint32_t *_remainderBuff;
-    long long _nextTime;
+    long long _nextRxTime;
 
     //tx streaming
     bool _userHandlesTxStatus;
+    bool _inTimedTxBurst;
+    long long _nextTxTime;
 
     //stream configuration
     enum StreamFormat

@@ -181,6 +181,7 @@ int NovenaRF::activateStream(
 
     if (int(stream) == SOAPY_SDR_TX)
     {
+        _inTimedTxBurst = false;
         _userHandlesTxStatus = false;
         return 0;
     }
@@ -302,10 +303,10 @@ int NovenaRF::acquireReadBuffer(
     timeNs = this->ticksToTimeNs(timeTicks);
 
     //infer the time within a burst based on the rate so we always have a valid time
-    if (hasTime) _nextTime = timeNs;
-    timeNs = _nextTime;
+    if (hasTime) _nextRxTime = timeNs;
+    timeNs = _nextRxTime;
     hasTime = true;
-    _nextTime += long((1e9*numSamples)/getSampleRate(SOAPY_SDR_RX, 0));
+    _nextRxTime += long((1e9*numSamples)/getSampleRate(SOAPY_SDR_RX, 0));
 
     //error indicators
     if (overflow) flags |= SOAPY_SDR_END_ABRUPT;
@@ -418,17 +419,27 @@ void NovenaRF::releaseWriteBuffer(
     const size_t handle,
     const size_t numElems,
     int &flags,
-    const long long timeNs)
+    long long timeNs)
 {
     static int id = 0;
+    bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
+    const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
+
+    //infer the time within a burst based on the rate so we always have a valid time
+    if (hasTime)
+    {
+        _nextTxTime = timeNs;
+        _inTimedTxBurst = true;
+    }
+    timeNs = _nextTxTime;
+    _nextTxTime += long((1e9*numElems)/getSampleRate(SOAPY_SDR_TX, 0));
+    if (_inTimedTxBurst) hasTime = true;
+    if (burstEnd) _inTimedTxBurst = false;
 
     //pack the header
     void *payload;
     size_t len = 0;
-    const bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
     const long long timeTicks(this->timeNsToTicks(timeNs));
-    const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
-
     twbw_deframer_data_packer(
         _deframer0_txd_chan->buffer(handle), len, sizeof(uint32_t),
         payload, numElems, id++, hasTime, timeTicks, burstEnd);
