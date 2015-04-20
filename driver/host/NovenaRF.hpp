@@ -216,6 +216,8 @@ public:
 
     std::vector<std::string> listFrequencies(const int direction, const size_t channel) const;
 
+    std::map<int, std::map<size_t, double>> _cachedCordics;
+
     /*******************************************************************
      * Sample Rate API
      ******************************************************************/

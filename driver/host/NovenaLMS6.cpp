@@ -257,20 +257,22 @@ void NovenaRF::setFrequency(const int direction, const size_t channel, const std
     }
     if (name == "BB")
     {
-        //set the cordic rate (TODO fix phase in FPGA before using)
-        const double cordicFreq = 0.0;
+        //set the cordic rate
+        const double cordicFreq = frequency;
         const double dspRate = LMS_CLOCK_RATE/2;
         uint32_t cordicWord = int32_t(cordicFreq*(1 << 31)/dspRate);
+        uint32_t scaledWord = -2*int32_t(cordicWord);
         if (direction == SOAPY_SDR_RX)
         {
-            this->writeRegister(REG_DECIM_CORDIC_PHASE_LO, cordicWord & 0xffff);
-            this->writeRegister(REG_DECIM_CORDIC_PHASE_HI, cordicWord >> 16);
+            this->writeRegister(REG_DECIM_CORDIC_PHASE_LO, scaledWord & 0xffff);
+            this->writeRegister(REG_DECIM_CORDIC_PHASE_HI, scaledWord >> 16);
         }
         if (direction == SOAPY_SDR_TX)
         {
-            this->writeRegister(REG_INTERP_CORDIC_PHASE_LO, cordicWord & 0xffff);
-            this->writeRegister(REG_INTERP_CORDIC_PHASE_HI, cordicWord >> 16);
+            this->writeRegister(REG_INTERP_CORDIC_PHASE_LO, scaledWord & 0xffff);
+            this->writeRegister(REG_INTERP_CORDIC_PHASE_HI, scaledWord >> 16);
         }
+        _cachedCordics[direction][channel] = (cordicWord*dspRate)/double(1 << 31);
         return;
     }
     return SoapySDR::Device::setFrequency(direction, channel, name, frequency);
@@ -284,7 +286,7 @@ double NovenaRF::getFrequency(const int direction, const size_t channel, const s
     }
     if (name == "BB")
     {
-        //TODO once cordic works
+        return _cachedCordics.at(direction).at(channel);
     }
     return SoapySDR::Device::getFrequency(direction, channel, name);
 }

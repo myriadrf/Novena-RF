@@ -92,6 +92,10 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
 
     //default to offset removal on
     this->setDCOffsetMode(SOAPY_SDR_RX, 0, true);
+
+    //reset cordics
+    this->setFrequency(SOAPY_SDR_RX, 0, "BB", 0.0, SoapySDR::Kwargs());
+    this->setFrequency(SOAPY_SDR_TX, 0, "BB", 0.0, SoapySDR::Kwargs());
 }
 
 NovenaRF::~NovenaRF(void)

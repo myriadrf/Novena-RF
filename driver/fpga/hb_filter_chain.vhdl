@@ -61,9 +61,8 @@ architecture rtl of hb_filter_chain is
 
     --cordic phase accumulator
     signal phase_accum : unsigned(31 downto 0);
-    signal phase_tdata : std_logic_vector(15 downto 0);
-    signal phase_tvalid : std_logic;
-    signal phase_tready : std_logic;
+    signal cordic_phase : std_logic_vector(31 downto 0);
+    signal cordic_enb : std_logic;
 
     --cordic streams
     signal in_cordic_data : std_logic_vector(31 downto 0);
@@ -81,33 +80,34 @@ architecture rtl of hb_filter_chain is
 begin
 
     --cordic phase tracking
-    --FIXME this isnt correct for scaled radians mode
     process (clk) begin
     if (rising_edge(clk)) then
-        phase_tdata(15 downto 0) <= std_logic_vector(phase_accum(31 downto 16));
-        phase_tvalid <= '1';
         if (rst = '1') then
             phase_accum <= to_unsigned(0, phase_accum'length);
-        elsif (phase_tvalid = '1' and phase_tready = '1') then
+            cordic_phase <= (others => '0');
+        elsif (cordic_enb = '1') then
             phase_accum <= phase_accum + unsigned(phase_inc);
+            cordic_phase <= std_logic_vector(phase_accum(31 downto 0));
         end if;
     end if;
     end process;
 
     --instantiate cordic
-    cordic: entity work.cordic_v5_0
+    cordic: entity work.CORDIC
     port map (
-        aclk => clk,
-        s_axis_phase_tvalid => phase_tvalid,
-        s_axis_phase_tready => phase_tready,
-        s_axis_phase_tdata => phase_tdata,
-        s_axis_cartesian_tvalid => in_cordic_valid,
-        s_axis_cartesian_tready => in_cordic_ready,
-        s_axis_cartesian_tdata => in_cordic_data,
-        m_axis_dout_tvalid => out_cordic_valid,
-        m_axis_dout_tready => out_cordic_ready,
-        m_axis_dout_tdata => out_cordic_data
+        clock => clk,
+        enable => cordic_enb,
+        x_start => in_cordic_data(31 downto 16),
+        y_start => in_cordic_data(15 downto 0),
+        sine => out_cordic_data(31 downto 16),
+        cosine => out_cordic_data(15 downto 0),
+        angle => cordic_phase
     );
+
+    --connect in and out handshakes (passthrough)
+    cordic_enb <= in_cordic_valid and in_cordic_ready;
+    in_cordic_ready <= out_cordic_ready;
+    out_cordic_valid <= in_cordic_valid;
 
     --interp mode has cordic on the output
     interp_ios: if MODE = "interp" generate
