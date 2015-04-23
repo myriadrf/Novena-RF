@@ -39,6 +39,8 @@ static SignalHandlerLogger myLogger;
 
 /***********************************************************************
  * Setup and tear-down hooks
+ * Initialize everything on the lms6 for runtime usage.
+ * Configurable parameters are in the sections below.
  **********************************************************************/
 void NovenaRF::initRFIC(void)
 {
@@ -91,7 +93,7 @@ void NovenaRF::initRFIC(void)
     this->setAntenna(SOAPY_SDR_TX, 0, "BB");
     this->setAntenna(SOAPY_SDR_RX, 0, "BB");
 
-    //set expected interface mod
+    //set expected interface mode
     _lms6ctrl->SetParam(lms6::MISC_CTRL_9, 0); //rx fsync polarity
     _lms6ctrl->SetParam(lms6::MISC_CTRL_8, 1); //rx interleave mode (swap for std::complex host format)
     _lms6ctrl->SetParam(lms6::MISC_CTRL_6, 1); //tx fsync polarity (tx needs this swap for an unknown reason)
@@ -114,6 +116,12 @@ void NovenaRF::exitRFIC(void)
 
 /*******************************************************************
  * Gain API
+ *
+ * Available amplification/attenuation elements are listed in order
+ * from RF to BB for the default gain distribution algorithm.
+ *
+ * Gains are passed in as dB and clipped and scaled into integer values
+ * for the specific registers to which they apply.
  ******************************************************************/
 std::vector<std::string> NovenaRF::listGains(const int direction, const size_t channel) const
 {
@@ -203,6 +211,11 @@ SoapySDR::Range NovenaRF::getGainRange(const int direction, const size_t channel
 
 /*******************************************************************
  * Frequency API
+ *
+ * The LO is tuned to the specified frequency in Hz
+ * and then the calibration algorithm is applied.
+ * Error in tuning the LO is compensated in the CORDIC
+ * through the default tuning algorithm.
  ******************************************************************/
 void NovenaRF::setRfFrequency(const int direction, const size_t channel, const double frequency, const SoapySDR::Kwargs &)
 {
@@ -307,6 +320,7 @@ SoapySDR::RangeList NovenaRF::getFrequencyRange(const int direction, const size_
 
 std::vector<std::string> NovenaRF::listFrequencies(const int direction, const size_t channel) const
 {
+    //order RF to BB for default tuning algorithm
     std::vector<std::string> comps;
     comps.push_back("RF");
     comps.push_back("BB");
@@ -396,8 +410,6 @@ std::vector<std::string> NovenaRF::listAntennas(const int direction, const size_
 
 void NovenaRF::setAntenna(const int direction, const size_t channel, const std::string &name)
 {
-    //select the TX PAs or RX LNAs based on frequency
-    //these calls also modify external RF switch GPIOs
     if (direction == SOAPY_SDR_TX)
     {
         if (name == "HB") _lms6ctrl->SetParam(lms6::PA_EN, 1);
