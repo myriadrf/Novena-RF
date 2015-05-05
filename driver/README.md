@@ -62,6 +62,7 @@ The instructions are intended for building locally on the device (for now).
 
 ```
 sudo apt-get install cmake g++ libusb-1.0-0-dev git
+sudo apt-get remove libi2c-dev #fixes build issue
 ```
 
 ### Build the host driver
