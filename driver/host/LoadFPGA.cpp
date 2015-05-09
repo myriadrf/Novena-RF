@@ -74,7 +74,7 @@ void novenaRF_loadFpga(const std::string &fpgaImage)
 
     while (true)
     {
-        char buff[128];
+        char buff[SPIDEV_MAXBUFF];
         int r = fread(buff, 1, sizeof(buff), fpga_fp);
         if (r <= 0) break;
         if (write(spi_fd, buff, r) != r) break;

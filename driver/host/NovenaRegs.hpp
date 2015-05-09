@@ -19,6 +19,7 @@
 
 #define FPGA_RESET_GPIO 135
 #define FPGA_LOAD_SPIDEV "/dev/spidev2.0"
+#define SPIDEV_MAXBUFF 32 //maximum number of bytes per transaction
 
 #define LMS_CLOCK_RATE 30.72e6
 
