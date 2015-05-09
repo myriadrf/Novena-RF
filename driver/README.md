@@ -125,9 +125,10 @@ which support advanced timed streaming and burst controls.
 Install SoapySDR first before following the build guide:
 https://github.com/pothosware/pothos/wiki/BuildGuide
 
-## OpenBTS
+## osmo-trx
 
-Coming soon!
+This is a branch of osmo-trx with novena support:
+https://github.com/pothosware/osmo-trx/tree/novena_support
 
 ## Advanced
 
@@ -149,7 +150,7 @@ Clone the linux kernel branch for Novena:
 ```
 git clone https://github.com/xobs/novena-linux.git
 cd novena-linux
-git checkout v3.17-rc5-novena-vivante
+git checkout v3.19-novena
 ```
 
 Instructions for building the kernel borrowed from this site:
