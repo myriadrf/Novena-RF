@@ -136,6 +136,7 @@ public:
         const long timeoutUs);
 
     size_t getNumDirectAccessBuffers(SoapySDR::Stream *stream);
+    int getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t handle, void **buffs);
 
     int acquireReadBuffer(
         SoapySDR::Stream *stream,

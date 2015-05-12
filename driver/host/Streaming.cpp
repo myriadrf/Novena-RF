@@ -146,6 +146,19 @@ size_t NovenaRF::getNumDirectAccessBuffers(SoapySDR::Stream *stream)
     return SoapySDR::Device::getNumDirectAccessBuffers(stream);
 }
 
+int NovenaRF::getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t handle, void **buffs)
+{
+    if (int(stream) == SOAPY_SDR_RX)
+    {
+        buffs[0] = ((uint32_t *)_framer0_rxd_chan->buffer(handle)) + 4;
+    }
+    if (int(stream) == SOAPY_SDR_TX)
+    {
+        buffs[0] = ((uint32_t *)_deframer0_txd_chan->buffer(handle)) + 4;
+    }
+    return SoapySDR::Device::getDirectAccessBufferAddrs(stream, handle, buffs);
+}
+
 int NovenaRF::sendControlMessage(const int tag, const bool timeFlag, const bool burstFlag, const int burstSize, const long long time)
 {
     size_t len = 0;
