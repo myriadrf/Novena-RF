@@ -151,10 +151,12 @@ int NovenaRF::getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t 
     if (int(stream) == SOAPY_SDR_RX)
     {
         buffs[0] = ((uint32_t *)_framer0_rxd_chan->buffer(handle)) + 4;
+        return 0;
     }
     if (int(stream) == SOAPY_SDR_TX)
     {
         buffs[0] = ((uint32_t *)_deframer0_txd_chan->buffer(handle)) + 4;
+        return 0;
     }
     return SoapySDR::Device::getDirectAccessBufferAddrs(stream, handle, buffs);
 }
