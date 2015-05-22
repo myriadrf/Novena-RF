@@ -107,16 +107,27 @@ architecture rtl of novena_rf is
     constant REG_DMA_CLR_IRQ_MASK_ADDR : natural := 52;
 
     --filter bypasses for configurable sample rate
+    constant NUM_FILTERS : positive := 5;
     constant REG_DECIM_FILTER_BYPASS : natural := 54;
     constant REG_INTERP_FILTER_BYPASS : natural := 56;
+
+    --cordic phase control
     constant REG_DECIM_CORDIC_PHASE_LO : natural := 58;
     constant REG_DECIM_CORDIC_PHASE_HI : natural := 60;
     constant REG_INTERP_CORDIC_PHASE_LO : natural := 62;
     constant REG_INTERP_CORDIC_PHASE_HI : natural := 64;
+
+    --rx dc removal
     constant REG_ENABLE_DC_REMOVAL : natural := 66;
+
+    --internal baseband loopback at interface rate
     constant REG_LMS_TRX_LOOPBACK : natural := 70;
 
-    constant NUM_FILTERS : positive := 5;
+    --tx idle level -- used for testing
+    constant REG_TX_IDLE_LEVEL_LO : natural := 72;
+    constant REG_TX_IDLE_LEVEL_HI : natural := 74;
+
+    --constants for DMA buffer sizes
     constant TEST0_BRAM_NUM_ENTRIES : positive := 16;
     constant FRAMER0_FIFO_NUM_ENTRIES : positive := 1024*16;
     constant FRAMER0_S2MM_NUM_ENTRIES : positive := 4096;
@@ -228,6 +239,7 @@ architecture rtl of novena_rf is
     signal dac_data : std_logic_vector(31 downto 0);
     signal dac_ready : std_logic;
     signal interp_data : std_logic_vector(31 downto 0);
+    signal interp_data_pre : std_logic_vector(31 downto 0);
     signal interp_ready : std_logic;
     signal adc_active : boolean;
     signal dac_active : boolean;
@@ -237,7 +249,7 @@ architecture rtl of novena_rf is
     signal decim_cordic_phase : std_logic_vector(31 downto 0);
     signal interp_cordic_phase : std_logic_vector(31 downto 0);
     signal dc_removal : std_logic;
-
+    signal tx_idle_level : std_logic_vector(31 downto 0) := (others => '0');
     signal loopback_test : std_logic_vector(15 downto 0) := (others => '0');
 
     --ila debug
@@ -328,6 +340,10 @@ begin
                     dc_removal <= reg_data_wr(0);
                 elsif (addr_num = REG_LMS_TRX_LOOPBACK) then
                     lms_trx_loopback <= reg_data_wr(0);
+                elsif (addr_num = REG_TX_IDLE_LEVEL_LO) then
+                    tx_idle_level(15 downto 0) <= reg_data_wr;
+                elsif (addr_num = REG_TX_IDLE_LEVEL_HI) then
+                    tx_idle_level(31 downto 16) <= reg_data_wr;
                 end if;
             end if;
         end if;
@@ -597,7 +613,7 @@ begin
         clk => lms_clk,
         rst => lms_rst,
         in_time => if_time,
-        dac_tdata => interp_data,
+        dac_tdata => interp_data_pre,
         dac_tready => interp_ready,
         in_tdata => deframer0_txd_data,
         in_tuser => "0", --not used
@@ -610,6 +626,9 @@ begin
         stat_tvalid => deframer0_stat_valid,
         dac_active => dac_active
     );
+
+    --mux register controlled idle signal when inactive
+    interp_data <= interp_data_pre when (dac_active) else tx_idle_level;
 
     interp_chain: entity work.hb_filter_chain
     generic map (
