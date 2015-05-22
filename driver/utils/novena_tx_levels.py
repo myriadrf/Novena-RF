@@ -64,10 +64,14 @@ def transmit_level(
 
     #transmit a continuous level
     sdr.activateStream(txStream)
+    """
     samples = np.array([ampl]*sdr.getStreamMTU(txStream)).astype(np.complex64)
     while not user_exit:
         sr = sdr.writeStream(txStream, [samples], len(samples))
         if sr.ret != len(samples): raise Exception('transmit failed %s'%str(sr))
+    """
+    sdr.writeRegister(72, int(ampl*(1 << 15))) #write(addr, fixed point ampl)
+    while not user_exit: time.sleep(0.1)
 
     #cleanup tx stream
     print("Cleanup streams")
