@@ -86,8 +86,12 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
     //initiate communication with the frontend
     this->initRFIC();
 
-    //initialize the DMA channels
+    //defaults for internal testing
     this->writeRegister(REG_LMS_TRX_LOOPBACK, 0); //disable loopback
+    this->writeRegister(REG_TX_IDLE_LEVEL_LO, 0); //DUC input idles 0
+    this->writeRegister(REG_TX_IDLE_LEVEL_HI, 0); //DUC input idles 0
+
+    //initialize the DMA channels
     this->initDMAChannels();
 
     //default to offset removal on

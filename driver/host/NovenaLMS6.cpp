@@ -13,6 +13,10 @@
 #include "lms6/Algorithms.h"
 #include "MessageLog.h"
 
+#include <sys/stat.h>
+#include <pthread.h>
+#include <fstream>
+
 /***********************************************************************
  * Log handler from the lms suite
  **********************************************************************/
@@ -36,6 +40,49 @@ public:
 };
 
 static SignalHandlerLogger myLogger;
+
+/***********************************************************************
+ * handler for interfacing with LMS6 registers from unix fifo
+ **********************************************************************/
+#define NOVENA_RF_CMD_PATH "/tmp/novena_rf_cmd"
+#define NOVENA_RF_OUT_PATH "/tmp/novena_rf_out"
+static pthread_t fifoAccessThread;
+
+void *fifoAccessHandler(void *arg)
+{
+    auto regMap = reinterpret_cast<lms6::RegistersMap *>(arg);
+
+    mkfifo(NOVENA_RF_CMD_PATH, S_IWUSR | S_IRUSR);
+    mkfifo(NOVENA_RF_OUT_PATH, S_IWUSR | S_IRUSR);
+
+    while (true)
+    {
+        //read cmd fifo
+        std::ifstream cmdFile(NOVENA_RF_CMD_PATH);
+        std::string line;
+        std::getline(cmdFile, line);
+        if (line.empty()) continue;
+        if (line == "exit") break;
+
+        //parse command
+        std::string adrStr, valStr;
+        std::stringstream ss(line);
+        std::getline(ss, adrStr, ' ');
+        std::getline(ss, valStr, ' ');
+        const long adr = (adrStr.substr(0, 2) == "0x")?strtol(adrStr.c_str(), nullptr, 16):strtol(adrStr.c_str(), nullptr, 10);
+        const long val = (valStr.substr(0, 2) == "0x")?strtol(valStr.c_str(), nullptr, 16):strtol(valStr.c_str(), nullptr, 10);
+
+        //perform write it value specified
+        if (not valStr.empty()) regMap->SetRegisterValue(adr, val);
+
+        //perform a read and output to the result
+        const int out = regMap->GetRegisterValue(adr, true/*from chip*/);
+        std::ofstream outFile(NOVENA_RF_OUT_PATH);
+        outFile << std::hex << "0x" << out << std::endl;
+    }
+
+    return nullptr;
+}
 
 /***********************************************************************
  * Setup and tear-down hooks
@@ -98,10 +145,22 @@ void NovenaRF::initRFIC(void)
     _lms6ctrl->SetParam(lms6::MISC_CTRL_8, 1); //rx interleave mode (swap for std::complex host format)
     _lms6ctrl->SetParam(lms6::MISC_CTRL_6, 1); //tx fsync polarity (tx needs this swap for an unknown reason)
     _lms6ctrl->SetParam(lms6::MISC_CTRL_5, 1); //tx interleave mode (swap for std::complex host format)
+
+    //start the register handler thread
+    if (pthread_create(&fifoAccessThread, nullptr, fifoAccessHandler, _lms6ctrl->getRegistersMap()) != 0)
+    {
+        SoapySDR::log(SOAPY_SDR_ERROR, "Error creating fifo access thread");
+    }
 }
 
 void NovenaRF::exitRFIC(void)
 {
+    //stop the register handler thread
+    std::ofstream cmdFile(NOVENA_RF_CMD_PATH);
+    cmdFile << "exit" << std::endl;
+    cmdFile.close();
+    pthread_join(fifoAccessThread, nullptr);
+
     //_lms6ctrl->SaveToFile("/tmp/lms6.txt", false);
     _lms6ctrl->SetParam(lms6::STXEN, 0); //disable transmitter
     _lms6ctrl->SetParam(lms6::SRXEN, 0); //disable receiver
