@@ -40,7 +40,7 @@ echo "flipping reset"
 echo 0 > /sys/class/gpio/gpio135/value
 echo 1 > /sys/class/gpio/gpio135/value
 echo "configuring FPGA"
-dd if=$1 of=/dev/spidev2.0 bs=128
+dd if=$1 of=/dev/spidev2.0 bs=32
 
 echo "turning on clock to FPGA"
 devmem2 0x020c8160 w 0x00000D2B
