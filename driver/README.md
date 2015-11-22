@@ -96,6 +96,8 @@ sudo ./prepare_novena_rf.sh
 
 Note: this script should be run after each reboot to set permissions and to load the module.
 
+If, upon running the script, you get the error “could not insert module novena\_rf.ko: Invalid module format”, this means that the prebuilt `novena_rf.ko` doesn't match your kernel. Run `uname -a` to get the full version of your running kernel and `ls novena_rf.ko.*` to see if there's a matching version that you can copy over `novena_rf.ko`. If not, see the section below on building the kernel module.
+
 ## Hello Novena RF
 
 Check that the installation detects NovenaRF support:
@@ -110,7 +112,7 @@ SoapySDRUtil --make="driver=novena"
 
 Use the NovenaRF in GNU Radio through the gr-osmosdr API.
 The user will have to install GNU Radio and SoapySDR first,
-then install gr-osmosdr through the soapy_support git branch:
+then install gr-osmosdr through the soapy\_support git branch:
 
 ```
 git clone git://git.osmocom.org/gr-osmosdr
@@ -128,32 +130,32 @@ https://github.com/pothosware/pothos/wiki/BuildGuide
 ## osmo-trx
 
 This is a branch of osmo-trx with novena support:
-https://github.com/pothosware/osmo-trx/tree/novena_support
+https://github.com/pothosware/osmo-trx/tree/novena\_support
 
 ## Advanced
 
 ### Build the FPGA image
 
-Build the FPGA image with Xilinx ISE 14.*.
-The project is fpga/novena_rf/novena_rf.xise
+Build the FPGA image with Xilinx ISE 14.\*.
+The project is fpga/novena\_rf/novena\_rf.xise
 
 ### Build the kernel module
 
-This is an out of tree kernel module, it requires a cross arm toolchain
-and a build of the linux kernel.
+This is an out of tree kernel module and needs a full build of the kernel to compile against. Since a full kernel build can take a long time on the Novena, these instructions are for cross-compiling the kernel on another (more powerful) machine.
 
 Download one of the available ARM toolchains:
-http://boundarydevices.com/toolchains-i-mx6/
+http://boundarydevices.com/toolchains-i-mx6/. For example, the toolchain used below can be found [here](https://launchpad.net/linaro-toolchain-binaries/+milestone/2012.04).
 
 Clone the linux kernel branch for Novena:
 
 ```
 git clone https://github.com/xobs/novena-linux.git
 cd novena-linux
-git checkout v3.19-novena
 ```
 
-Instructions for building the kernel borrowed from this site:
+You need to build a kernel that matches the one that you're running as closely as possible. Run `apt-cache show linux-image-novena | grep Version` to get the version number, which should look something like `3.19-novena-r39`. Then run `git tag | grep novena` to list the available tags and match the running version, hopefully exactly.
+
+Instructions for building the kernel have been borrowed from this site:
 http://boundarydevices.com/cross-compile-i-mx6-kernel-using-ltib-toolchain/
 
 
@@ -162,10 +164,10 @@ export PATH=/opt/toolchains/gcc-linaro-arm-linux-gnueabi-2012.04-20120426_linux/
 export ARCH=arm
 export CROSS_COMPILE=arm-linux-gnueabi-
 make novena_defconfig
-make zImage modules
+make -j5 zImage modules
 ```
 
-Build the kernel module:
+Now build the kernel module from `Novena-RF/driver`:
 
 ```
 cd kernel
