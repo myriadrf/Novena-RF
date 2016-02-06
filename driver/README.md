@@ -112,12 +112,12 @@ SoapySDRUtil --make="driver=novena"
 
 Use the NovenaRF in GNU Radio through the gr-osmosdr API.
 The user will have to install GNU Radio and SoapySDR first,
-then install gr-osmosdr through the soapy\_support git branch:
+then install gr-osmosdr through the official project.
+Make sure that soapy is one of the enabled components:
 
 ```
 git clone git://git.osmocom.org/gr-osmosdr
 cd gr-osmosdr/
-git checkout soapy_support
 ```
 
 ## Pothos
