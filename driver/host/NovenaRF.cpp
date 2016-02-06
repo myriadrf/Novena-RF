@@ -100,6 +100,10 @@ NovenaRF::NovenaRF(const std::string &fpgaImage):
     //reset cordics
     this->setFrequency(SOAPY_SDR_RX, 0, "BB", 0.0, SoapySDR::Kwargs());
     this->setFrequency(SOAPY_SDR_TX, 0, "BB", 0.0, SoapySDR::Kwargs());
+
+    //provide a value for the rate until set
+    _cachedSampleRates[SOAPY_SDR_RX] = 0.0;
+    _cachedSampleRates[SOAPY_SDR_TX] = 0.0;
 }
 
 NovenaRF::~NovenaRF(void)
